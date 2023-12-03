@@ -36,7 +36,7 @@ class RCRPFactions(commands.Cog, name="Faction Commands"):
         }
 
         self.bot = bot
-        self.config = Config.get_conf(self, 45599)
+        self.config = Config.get_conf(self, 87582156741681152)
         self.config.register_guild(**default_guild)
 
     async def return_faction_name(self, factionid: int):
