@@ -1,0 +1,7 @@
+{
+    "name": "RCRP Model Manager",
+    "author": ["17f"],
+    "description": "Cog which is used to add custom models to RCRP via the Discord bot",
+    "short": "Cog which is used to add custom models to RCRP via the Discord bot",
+    "end_user_data_statement": "This cog does not collect data pertaining to any Discord user."
+}
