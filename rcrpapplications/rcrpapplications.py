@@ -24,7 +24,7 @@ class RCRPApplications(commands.Cog, name='RCRP Applications'):
     async def log(self, message: str):
         rcrpguild = self.bot.get_guild(rcrpguildid)
         logchannel = rcrpguild.get_channel(775767985586962462)
-        await logchannel.send(message)
+        await logchannel.send(f'rcrpapplications: {message}')
 
     @tasks.loop(seconds=5.0)
     async def check_pending_applications(self):

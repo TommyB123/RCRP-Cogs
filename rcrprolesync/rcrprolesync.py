@@ -44,7 +44,7 @@ class RCRPRoleSync(commands.Cog, name="RCRP Role Sync"):
     async def log(self, message: str):
         rcrpguild = self.bot.get_guild(rcrpguildid)
         logchannel = rcrpguild.get_channel(775767985586962462)
-        await logchannel.send(message)
+        await logchannel.send(f'rcrprolesync: {message}')
 
     async def verified_filter(self, member: discord.Member):
         return member_is_verified(member) is True
