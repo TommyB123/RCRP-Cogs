@@ -1,6 +1,7 @@
 import discord
 import aiomysql
 import bcrypt
+from typing import Union
 from redbot.core import commands, app_commands
 from redbot.core.bot import Red
 
@@ -14,6 +15,9 @@ verifiedrole = 293441047244308481
 helperrole = 293441873945821184
 adminrole = 293441894585729024
 testerrole = 293441807055060993
+
+# verification channel ID
+verify_channel = 466976078443839488
 
 # url of the dashboard. sent to players when they try to verify
 dashboardurl = "https://redcountyrp.com/user/dashboard"
@@ -75,8 +79,13 @@ class RcrpLogin(discord.ui.Modal, title='RCRP account login'):
 
 
 # command checks
-async def rcrp_check(ctx: commands.Context):
-    return ctx.guild is not None and ctx.guild.id == rcrpguildid
+async def rcrp_check(check: Union[commands.Context, discord.Interaction]):
+    if isinstance(check, commands.Context):
+        ctx = check
+        return ctx.guild is not None and ctx.guild.id == rcrpguildid
+    elif isinstance(check, discord.Interaction):
+        interaction = check
+        return interaction.guild is not None and interaction.guild_id == rcrpguildid
 
 
 async def management_check(ctx: commands.Context):
@@ -88,6 +97,10 @@ async def management_check(ctx: commands.Context):
             return False
     else:
         return True
+
+
+async def verify_channel_check(interaction: discord.Interaction):
+    return interaction.channel_id is not None and interaction.channel_id == verify_channel
 
 
 def member_is_verified(member: discord.Member):
@@ -109,9 +122,15 @@ class RCRPVerification(commands.Cog, name="RCRP Verification"):
 
         return (data is not None)
 
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        if message.guild is not None and message.guild.id == rcrpguildid and message.channel.id == verify_channel:
+            await message.delete()
+
     @app_commands.command()
-    @commands.guild_only()
-    @commands.cooldown(1, 60, commands.BucketType.user)
+    @app_commands.guild_only()
+    @app_commands.check(verify_channel_check)
+    @app_commands.checks.cooldown(1, 60)
     async def verify(self, interaction: discord.Interaction[Red]):
         """Verify an RCRP account"""
 
