@@ -30,6 +30,7 @@ class RcrpLogin(discord.ui.Modal, title='RCRP account login'):
     async def on_submit(self, interaction: discord.Interaction[Red]):
         bot = interaction.client
         username = self.username_entry.value
+        password = self.password_entry.value.encode()
 
         mysqlconfig = await bot.get_shared_api_tokens('mysql')
         sql = await aiomysql.connect(**mysqlconfig)
@@ -40,21 +41,34 @@ class RcrpLogin(discord.ui.Modal, title='RCRP account login'):
 
         if data is None:
             await interaction.response.send_message("Invalid account name.", ephemeral=True)
+            await cursor.close()
+            sql.close()
             return
 
         if data['State'] != 1:
             await interaction.response.send_message("You cannot verify your Master Account if you have not been accepted into the server.\nIf you're looking for help with the registration process, visit our forums at https://forum.redcountyrp.com", ephemeral=True)
+            await cursor.close()
+            sql.close()
             return
 
         if data['discordid'] != 0:
-            await interaction.response.send_message("This master account has already been verified before. If you are trying to verify a new discord account, please create a support ticket at https://redcountyrp.com/user/tickets.", ephemeral=True)
-            return
+            user = bot.get_user(data['discordid'])
+            if user is not None:
+                guild = await bot.fetch_guild(rcrpguildid)
+                bans = [ban async for ban in guild.bans(limit=2000) if ban.user.id == user.id]
+                if len(bans):
+                    await cursor.close()
+                    sql.close()
+                    await interaction.response.send_message("This RCRP account is linked to a discord account that is banned from the RCRP discord.")
+                    return
+            await cursor.execute("UPDATE masters SET discordid = 0 WHERE id = %s", (data['id'], ))
 
-        password_input = self.password_entry.value.encode()
         stored_password = data['Password'].encode()
-        password_match = bcrypt.checkpw(password_input, stored_password)
+        password_match = bcrypt.checkpw(password, stored_password)
 
         if password_match is False:
+            await cursor.close()
+            sql.close()
             await interaction.response.send_message("Invalid password supplied. If you've forgotten your password, please submit a password reset at https://redcountyrp.com/password/reset.", ephemeral=True)
             return
 
