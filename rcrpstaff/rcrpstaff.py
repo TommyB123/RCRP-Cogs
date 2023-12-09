@@ -393,8 +393,7 @@ class RCRPStaffCommands(commands.Cog):
             await ctx.send("Invalid user. Enter their discord ID, nothing else.")
             return
 
-        bans = await ctx.guild.bans()
-        for ban in bans:
+        async for ban in ctx.guild.bans():
             if ban.user.id == banned_user.id:
                 await ctx.guild.unban(ban.user)
                 await ctx.send(f"{ban.user.mention} has been successfully unbanned")
@@ -413,8 +412,7 @@ class RCRPStaffCommands(commands.Cog):
             await ctx.send("Invalid user.")
             return
 
-        bans = await ctx.guild.bans()
-        for ban in bans:
+        async for ban in ctx.guild.bans():
             if ban.user.id == banned_user.id:
                 await ctx.send(f"{ban.user.mention} was banned for the following reason: {ban.reason}")
                 return
