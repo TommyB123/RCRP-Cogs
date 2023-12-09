@@ -1,7 +1,7 @@
 import discord
 import aiomysql
 import json
-from redbot.core import commands
+from redbot.core import commands, app_commands
 from redbot.core.utils import menus
 from redbot.core.bot import Red
 
@@ -14,6 +14,16 @@ managementrole = 310927289317588992
 ownerrole = 293303836125298690
 staffroles = [ownerrole, adminrole, managementrole]
 
+# lol this is so ghetto
+path = __file__
+path = path.replace('rcrpnormal.py', '')
+
+# ID of the rcrp guild
+rcrpguildid = 93142223473905664
+
+
+async def rcrp_check(ctx: commands.Context):
+    return ctx.guild is not None and ctx.guild.id == rcrpguildid
 
 async def admin_check(ctx: commands.Context):
     if ctx.guild is not None and ctx.guild.id == rcrpguildid:
@@ -141,3 +151,19 @@ class RCRPCommands(commands.Cog):
 
         message = json.dumps(rcrp_message)
         await self.send_relay_channel_message(ctx, message)
+
+    download = app_commands.Group(name='download', description='Download various SA-MP-related files')
+
+    @download.command(name='samp', description='SA-MP 0.3.DL installer')
+    @app_commands.guild_only()
+    @app_commands.check(rcrp_check)
+    async def samp(self, interaction: discord.Interaction):
+        file = discord.File(f'{path}/files/sa-mp-0.3.DL-R1-install.exe.zip')
+        await interaction.response.send_message(file=file)
+
+    @download.command(name='codsmp', description='Cods MP mod')
+    @app_commands.guild_only()
+    @app_commands.check(rcrp_check)
+    async def codsmp(self, interaction: discord.Interaction):
+        file = discord.File(f'{path}/files/codsmp.zip')
+        await interaction.response.send_message(file=file)
