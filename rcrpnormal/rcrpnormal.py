@@ -25,6 +25,7 @@ rcrpguildid = 93142223473905664
 async def rcrp_check(ctx: commands.Context):
     return ctx.guild is not None and ctx.guild.id == rcrpguildid
 
+
 async def admin_check(ctx: commands.Context):
     if ctx.guild is not None and ctx.guild.id == rcrpguildid:
         for role in ctx.author.roles:
