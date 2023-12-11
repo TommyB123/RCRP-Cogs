@@ -3,6 +3,7 @@ import aiomysql
 from redbot.core import commands
 from redbot.core.utils import menus
 from redbot.core.utils.chat_formatting import pagify
+from redbot.core.bot import Red
 
 # weapon origins
 origins = {
@@ -77,6 +78,9 @@ weaponnames = {
 
 class OwnerCog(commands.Cog):
     """Cog containing owner commands for the RCRP discord"""
+
+    def __init__(self, bot: Red):
+        self.bot = bot
 
     @commands.command()
     @commands.guild_only()
