@@ -19,9 +19,6 @@ testerrole = 293441807055060993
 # verification channel ID
 verify_channel = 466976078443839488
 
-# url of the dashboard. sent to players when they try to verify
-dashboardurl = "https://redcountyrp.com/user/dashboard"
-
 
 class RcrpLogin(discord.ui.Modal, title='RCRP account login'):
     username_entry = discord.ui.TextInput(label='Enter your RCRP account name.', placeholder='CoolGuy123', max_length=30)
@@ -46,7 +43,7 @@ class RcrpLogin(discord.ui.Modal, title='RCRP account login'):
             return
 
         if data['State'] != 1:
-            await interaction.response.send_message("You cannot verify your Master Account if you have not been accepted into the server.\nIf you're looking for help with the registration process, visit our forums at https://forum.redcountyrp.com", ephemeral=True)
+            await interaction.response.send_message("You cannot verify your Master Account if you have not passed the roleplay quiz and been whitelisted on the server.\nIf you're looking for help with the registration process, visit [our forums](https://forum.redcountyrp.com) for more info.", ephemeral=True)
             await cursor.close()
             sql.close()
             return
@@ -69,7 +66,7 @@ class RcrpLogin(discord.ui.Modal, title='RCRP account login'):
         if password_match is False:
             await cursor.close()
             sql.close()
-            await interaction.response.send_message("Invalid password supplied. If you've forgotten your password, please submit a password reset at https://redcountyrp.com/password/reset.", ephemeral=True)
+            await interaction.response.send_message("You have entered an invalid password. If you've forgotten your account's password, please submit a [password reset request](https://redcountyrp.com/password/reset).", ephemeral=True)
             return
 
         verified_member: discord.Member = interaction.user
