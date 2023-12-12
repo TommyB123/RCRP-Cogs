@@ -69,7 +69,7 @@ class RCRPCommands(commands.Cog):
             totalcount += 1
             if counter == 25 or totalcount == cursor.rowcount:
                 embed = discord.Embed(title=f'Online Players - {cursor.rowcount}', description=string, color=0xe74c3c, timestamp=ctx.message.created_at)
-                embed.set_footer(text='Use the !player command to view if a specific player is online.', icon_url=self.bot.user.avatar_url)
+                embed.set_footer(text='Use the !player command to view if a specific player is online.', icon_url=self.bot.user.avatar.url)
                 embeds.append(embed)
                 string = ""
                 counter = 0
