@@ -43,7 +43,7 @@ class RCRPApplications(commands.Cog, name='RCRP Applications'):
                     application_ids.append(row['id'])
                     if row['id'] not in self.applications:
                         embed = discord.Embed(title="Click here to go to the application", url=f"https://redcountyrp.com/admin/applications/{row['id']}", color=0x008080)
-                        embed.set_author(name="RCRP Application", url=f"https://redcountyrp.com/admin/applications/{row['id']}", icon_url=rcrpguild.icon_url)
+                        embed.set_author(name="RCRP Application", url=f"https://redcountyrp.com/admin/applications/{row['id']}", icon_url=rcrpguild.icon.url)
                         embed.add_field(name="Username", value=row['Username'], inline=True)
                         embed.add_field(name="Email", value=row['EMail'], inline=True)
                         embed.add_field(name="Character ", value=row['characterName'], inline=True)
