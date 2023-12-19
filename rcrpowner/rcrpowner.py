@@ -143,7 +143,7 @@ class OwnerCog(commands.Cog):
             mysqlconfig = await self.bot.get_shared_api_tokens('mysql')
             sql = await aiomysql.connect(**mysqlconfig)
             cursor = await sql.cursor(aiomysql.DictCursor)
-            await cursor.execute("SELECT SUM(itemval) AS items, item FROM (SELECT * FROM inventory_player UNION SELECT * FROM inventory_house UNION SELECT * FROM inventory_bizz UNION SELECT * FROM inventory_vehicle) t WHERE item IN (47, 48, 49, 51, 52, 53, 55, 57) GROUP BY item")
+            await cursor.execute("SELECT SUM(itemval) AS items, item FROM (SELECT * FROM inventory_player UNION SELECT * FROM inventory_house UNION SELECT * FROM inventory_bizz UNION SELECT * FROM inventory_vehicle) t WHERE item IN ('INV_PEYOTE', 'INV_LCOCAINE', 'INV_MCOCAINE', 'INV_HCOCAINE', 'INV_LCRACK', 'INV_MCRACK', 'INV_HCRACK', 'INV_WEED', 'INV_HEROIN') GROUP BY item")
             results = await cursor.fetchall()
 
             drugs = {}
@@ -154,14 +154,14 @@ class OwnerCog(commands.Cog):
             sql.close()
 
             embed = discord.Embed(title='RCRP Drug Statistics', color=0xe74c3c, timestamp=ctx.message.created_at)
-            embed.add_field(name='Low Grade Cocaine', value='{:,}'.format(drugs[47]))
-            embed.add_field(name='Medium Grade Cocaine', value='{:,}'.format(drugs[48]))
-            embed.add_field(name='High Grade Cocaine', value='{:,}'.format(drugs[49]))
-            embed.add_field(name='Low Grade Crack', value='{:,}'.format(drugs[51]))
-            embed.add_field(name='Medium Grade Crack', value='{:,}'.format(drugs[52]))
-            embed.add_field(name='High Grade Crack', value='{:,}'.format(drugs[53]))
-            embed.add_field(name='Marijuana', value='{:,}'.format(drugs[55]))
-            embed.add_field(name='Heroin', value='{:,}'.format(drugs[57]))
+            embed.add_field(name='Low Grade Cocaine', value='{:,}'.format(drugs['INV_LCOCAINE']))
+            embed.add_field(name='Medium Grade Cocaine', value='{:,}'.format(drugs['INV_MCOCAINE']))
+            embed.add_field(name='High Grade Cocaine', value='{:,}'.format(drugs['INV_HCOCAINE']))
+            embed.add_field(name='Low Grade Crack', value='{:,}'.format(drugs['INV_LCRACK']))
+            embed.add_field(name='Medium Grade Crack', value='{:,}'.format(drugs['INV_MCRACK']))
+            embed.add_field(name='High Grade Crack', value='{:,}'.format(drugs['INV_HCRACK']))
+            embed.add_field(name='Marijuana', value='{:,}'.format(drugs['INV_WEED']))
+            embed.add_field(name='Heroin', value='{:,}'.format(drugs['INV_HEROIN']))
             await ctx.send(embed=embed)
 
     @commands.command()
@@ -185,8 +185,11 @@ class OwnerCog(commands.Cog):
         sql.close()
 
         embed = discord.Embed(title=f'RCRP Weapon Statistics ({origins[origin]})', color=0xe74c3c, timestamp=ctx.message.created_at)
+        totalweps = 0
         for weapon in results:
             embed.add_field(name=weaponnames[weapon['WeaponID']], value='{:,}'.format(weapon['count']))
+            totalweps += weapon['count']
+        embed.add_field(name='Total', value='{:,}'.format(totalweps))
         await ctx.send(embed=embed)
 
     @commands.group()
