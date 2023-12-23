@@ -1,0 +1,7 @@
+{
+    "name": "RCRP SASP Dispatch",
+    "author": ["17f"],
+    "description": "Dynamically manages voice channels for SASP patrol",
+    "short": "Dynamically manages voice channels for SASP patrol",
+    "end_user_data_statement": "This cog does not collect data pertaining to any Discord user."
+}
