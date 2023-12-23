@@ -93,10 +93,11 @@ class RCRPModelManager(commands.Cog):
         self.models = {}  # dict for pending model data. key will be the model's ID
         self.model_urls = []  # list containing each URL that needs to used for downloading
         self.rcrp_model_path = "/home/rcrp/domains/cdn.redcountyrp.com/public_html/rcrp"  # path of RCRP models
+        self.rcrp_guild_id = 93142223473905664
         self.relay_channel_id = 776943930603470868
 
     async def send_relay_channel_message(self, message: str):
-        rcrpguild = await self.bot.fetch_guild(93142223473905664)
+        rcrpguild = await self.bot.fetch_guild(self.rcrp_guild_id)
         relaychannel = rcrpguild.get_channel(self.relay_channel_id)
         await relaychannel.send(message)
 
@@ -390,6 +391,7 @@ class RCRPModelManager(commands.Cog):
         message = humanize_list(model_id_list)
         message = message.replace(', and', ',')
         rcrp_message = {
+            "origin": "rudy",
             "callback": "LoadCustomModels",
             "models": message
         }

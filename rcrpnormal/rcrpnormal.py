@@ -92,6 +92,7 @@ class RCRPCommands(commands.Cog):
     async def admins(self, ctx: commands.Context):
         """Sends a list of in-game administrators"""
         rcrp_message = {
+            "origin": "rudy",
             "callback": "FetchAdminListForDiscord",
             "channel": str(ctx.channel.id)
         }
@@ -145,6 +146,7 @@ class RCRPCommands(commands.Cog):
     async def vehicleinfo(self, ctx: commands.Context, vehicle: str):
         """Fetches all information related to a vehicle model from the SA-MP server"""
         rcrp_message = {
+            "origin": "rudy",
             "callback": "FetchVehicleInfoForDiscord",
             "vehicle": vehicle,
             "channel": str(ctx.channel.id)

@@ -632,6 +632,7 @@ class RCRPStaffCommands(commands.Cog):
     async def asay(self, ctx: commands.Context, *, message: str):
         """Broadcasts an admin message in-game"""
         rcrp_message = {
+            "origin": "rudy",
             "callback": "SendDiscordAsay",
             "admin": ctx.author.name,
             "message": message
@@ -646,6 +647,7 @@ class RCRPStaffCommands(commands.Cog):
     async def id(self, ctx: commands.Context, *, search: str):
         """Fetches an online player's ID based on user input"""
         rcrp_message = {
+            "origin": "rudy",
             "callback": "SendDiscordIDFetch",
             "target": search,
             "channel": str(ctx.channel.id)
@@ -664,6 +666,7 @@ class RCRPStaffCommands(commands.Cog):
             return
 
         rcrp_message = {
+            "origin": "rudy",
             "callback": "SendDiscordBan",
             "admin_id": master_id,
             "admin_name": ctx.author.name,
@@ -685,6 +688,7 @@ class RCRPStaffCommands(commands.Cog):
             return
 
         rcrp_message = {
+            "origin": "rudy",
             "callback": "SendDiscordKick",
             "admin_id": master_id,
             "admin_name": ctx.author.name,
