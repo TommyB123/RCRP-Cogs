@@ -19,8 +19,8 @@ def voice_channel_sorter(channel: discord.VoiceChannel):
 class RCRPDispatch(commands.Cog, name='SASP Dispatch'):
     def __init__(self, bot: Red):
         self.bot = bot
-        self.on_duty = {}
-        self.unit_channels = {}
+        self.on_duty: dict[int, str] = {}
+        self.unit_channels: dict[str, int] = {}
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -89,7 +89,7 @@ class RCRPDispatch(commands.Cog, name='SASP Dispatch'):
     async def cleanup_unit_channels(self, **kwargs):
         unit_category_channel = self.bot.get_channel(sasp_unit_channel_category_id)
         for voice_channel in unit_category_channel.voice_channels:
-            if len(voice_channel.members):
+            if len(voice_channel.members) or voice_channel.name in list(self.on_duty.values()):
                 continue
             else:
                 await voice_channel.delete()
@@ -168,7 +168,7 @@ class RCRPDispatch(commands.Cog, name='SASP Dispatch'):
         unit_category_channel = self.bot.get_channel(sasp_unit_channel_category_id)
         for voice_channel in unit_category_channel.voice_channels:
             if voice_channel.name == unit_tag:
-                unit_member.move_to(voice_channel)
+                await unit_member.move_to(voice_channel)
                 break
 
     async def add_tac_channel(self, **kwargs):
@@ -176,7 +176,17 @@ class RCRPDispatch(commands.Cog, name='SASP Dispatch'):
         tac_channel_number = len(tac_channel_category.voice_channels) + 1
         tac_channel_name = f'TAC-{tac_channel_number}'
 
-        await tac_channel_category.create_voice_channel(tac_channel_name)
+        new_channel = await tac_channel_category.create_voice_channel(tac_channel_name)
+        await self.send_sasp_radio_message(0x079992FF, f'TAC CHANNEL: TAC-{tac_channel_number}.')
+
+        unit_member_id = int(kwargs.get('unit_discord_id'))
+        if unit_member_id is None:
+            return
+
+        sasp_guild = self.bot.get_guild(sasp_guild_id)
+        unit_member = sasp_guild.get_member(unit_member_id)
+        if unit_member is not None and unit_member.voice is not None:
+            await unit_member.move_to(new_channel)
 
         voice_channels = tac_channel_category.voice_channels
         voice_channels.sort(key=voice_channel_sorter)
@@ -185,8 +195,6 @@ class RCRPDispatch(commands.Cog, name='SASP Dispatch'):
         for channel in voice_channels:
             await channel.edit(position=position)
             position += 1
-
-        await self.send_sasp_radio_message(0x079992FF, f'TAC CHANNEL: TAC-{tac_channel_number}.')
 
     async def remove_tac_channel(self, **kwargs):
         tac_channel_number = int(kwargs.get('tac_channel_number'))
@@ -247,3 +255,23 @@ class RCRPDispatch(commands.Cog, name='SASP Dispatch'):
 
         if channel_found is False:
             await self.send_samp_player_message(unit_member_id, 0xA2C8DCFF, f'TAC-{tac_channel_number} is not a currently active.')
+
+    async def unit_leave_tac_channel(self, **kwargs):
+        unit_member_id = int(kwargs.get('unit_discord_id'))
+        if unit_member_id is None:
+            return
+
+        saspguild = self.bot.get_guild(sasp_guild_id)
+        unit_member = saspguild.get_member(unit_member_id)
+        if unit_member is None:
+            return
+
+        if unit_member.voice is None:
+            return
+
+        channel_name = self.on_duty.get(unit_member_id)
+        unit_channel_category = self.bot.get_channel(sasp_unit_channel_category_id)
+        for voice_channel in unit_channel_category.voice_channels:
+            if voice_channel.name == channel_name:
+                await unit_member.move_to(voice_channel)
+                return
