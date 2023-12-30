@@ -5,10 +5,10 @@ from redbot.core import commands
 from redbot.core.bot import Red
 
 relay_channel_id = 782976971134205968
-sasp_guild_id = 782976967943258132
+sasp_guild_id = 381002103667294208
 rcrp_guild_id = 782976967943258132
-sasp_unit_channel_category_id = 1188034231482454036
-sasp_tac_channel_category_id = 1188062741672505518
+sasp_unit_channel_category_id = 1186592362177253456
+sasp_tac_channel_category_id = 1190572456449155152
 logging_channel_id = 782976971134205966
 
 
@@ -42,6 +42,8 @@ class RCRPDispatch(commands.Cog, name='SASP Dispatch'):
                     await func(**data)
                 else:
                     func(**data)
+
+            await message.delete()
 
     async def send_sasp_radio_message(self, color: int, message: str):
         relay_channel = self.bot.get_channel(relay_channel_id)
