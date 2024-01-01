@@ -6,7 +6,7 @@ from redbot.core.bot import Red
 
 relay_channel_id = 776943930603470868
 sasp_guild_id = 381002103667294208
-rcrp_guild_id = 782976967943258132
+rcrp_guild_id = 93142223473905664
 sasp_unit_channel_category_id = 1186592362177253456
 sasp_tac_channel_category_id = 1190572456449155152
 logging_channel_id = 782976971134205966
