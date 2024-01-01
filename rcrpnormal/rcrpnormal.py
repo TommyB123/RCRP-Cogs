@@ -86,44 +86,57 @@ class RCRPCommands(commands.Cog):
         except discord.HTTPException:
             pass
 
-    @commands.command()
-    @commands.guild_only()
-    @commands.cooldown(1, 60)
-    async def admins(self, ctx: commands.Context):
+    @app_commands.command()
+    @app_commands.guild_only()
+    async def admins(self, interaction: discord.Interaction):
         """Sends a list of in-game administrators"""
-        rcrp_message = {
-            "origin": "rudy",
-            "callback": "FetchAdminListForDiscord",
-            "channel": str(ctx.channel.id)
-        }
+        mysqlconfig = await self.bot.get_shared_api_tokens('mysql')
+        sql = await aiomysql.connect(**mysqlconfig)
+        cursor = await sql.cursor(aiomysql.DictCursor)
+        await cursor.execute("SELECT m.Username AS mastername, p.Name AS charactername, (SELECT ps.settingval FROM psettings ps WHERE sqlid = p.id AND ps.setting = 'CSET_AHIDE') AS hidden FROM masters m JOIN players p ON p.MasterAccount = m.id WHERE p.Online = 1 AND m.AdminLevel != 0")
+        data = cursor.fetchall()
+        rows = cursor.rowcount
+        await cursor.close()
+        sql.close()
 
-        final = json.dumps(rcrp_message)
-        await self.send_relay_channel_message(ctx, final)
+        if rows == 0:
+            await interaction.response.send_message('There are currently no administrators in-game.', ephemeral=True)
+            return
 
-    @commands.command()
-    @commands.guild_only()
-    @commands.cooldown(1, 60)
-    async def helpers(self, ctx: commands.Context):
+        embed = discord.Embed(title='In-game Administrators', color=0xf21818, timestamp=interaction.message.created_at)
+        visible = 0
+        for admin in data:
+            if admin['hidden'] is not None:
+                embed.add_field(name=admin['mastername'], value=admin['charactername'])
+                visible += 1
+
+        if visible != 0:
+            await interaction.response.send_message(embed=embed)
+        else:
+            await interaction.response.send_message('There are currently no administrators in-game.', ephemeral=True)
+
+    @app_commands.command()
+    @app_commands.guild_only()
+    async def helpers(self, interaction: discord.Interaction):
         """Sends a list of in-game helpers"""
         mysqlconfig = await self.bot.get_shared_api_tokens('mysql')
         sql = await aiomysql.connect(**mysqlconfig)
         cursor = await sql.cursor(aiomysql.DictCursor)
-        await cursor.execute("SELECT masters.Username AS mastername, players.Name AS charactername FROM masters JOIN players ON players.MasterAccount = masters.id WHERE Helper != 0 AND Online = 1")
-
-        if cursor.rowcount == 0:
-            await cursor.close()
-            sql.close()
-            await ctx.send("There are currently no helpers in-game.")
-            return
-
-        results = await cursor.fetchall()
-        embed = discord.Embed(title='Ingame Helpers', color=0xe74c3c, timestamp=ctx.message.created_at)
-        for helperinfo in results:
-            embed.add_field(name=helperinfo['mastername'], value=helperinfo['charactername'])
-
+        await cursor.execute("SELECT m.Username AS mastername, p.Name AS charactername FROM masters m JOIN players p ON p.MasterAccount = m.id WHERE Helper != 0 AND Online = 1")
+        data = cursor.fetchall()
+        rows = cursor.rowcount
         await cursor.close()
         sql.close()
-        await ctx.send(embed=embed)
+
+        if rows == 0:
+            await interaction.response.send_message('There are currently no helpers in-game.', ephemeral=True)
+            return
+
+        embed = discord.Embed(title='Ingame Helpers', color=0xe74c3c, timestamp=interaction.message.created_at)
+        for helper in data:
+            embed.add_field(name=helper['mastername'], value=helper['charactername'])
+
+        await interaction.response.send_message(embed=embed)
 
     @commands.command()
     @commands.guild_only()
