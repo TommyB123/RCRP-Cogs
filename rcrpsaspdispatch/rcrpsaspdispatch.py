@@ -4,7 +4,7 @@ import inspect
 from redbot.core import commands
 from redbot.core.bot import Red
 
-relay_channel_id = 782976971134205968
+relay_channel_id = 776943930603470868
 sasp_guild_id = 381002103667294208
 rcrp_guild_id = 782976967943258132
 sasp_unit_channel_category_id = 1186592362177253456
