@@ -103,7 +103,7 @@ class RCRPCommands(commands.Cog):
             await interaction.response.send_message('There are currently no administrators in-game.', ephemeral=True)
             return
 
-        embed = discord.Embed(title='In-game Administrators', color=0xf21818, timestamp=interaction.message.created_at)
+        embed = discord.Embed(title='In-game Administrators', color=0xf21818, timestamp=interaction.created_at)
         visible = 0
         for admin in data:
             if admin['hidden'] is not None:
@@ -132,7 +132,7 @@ class RCRPCommands(commands.Cog):
             await interaction.response.send_message('There are currently no helpers in-game.', ephemeral=True)
             return
 
-        embed = discord.Embed(title='Ingame Helpers', color=0xe74c3c, timestamp=interaction.message.created_at)
+        embed = discord.Embed(title='Ingame Helpers', color=0xe74c3c, timestamp=interaction.created_at)
         for helper in data:
             embed.add_field(name=helper['mastername'], value=helper['charactername'])
 
