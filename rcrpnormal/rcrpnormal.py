@@ -22,18 +22,8 @@ path = path.replace('rcrpnormal.py', '')
 rcrpguildid = 93142223473905664
 
 
-async def rcrp_check(ctx: commands.Context):
-    return ctx.guild is not None and ctx.guild.id == rcrpguildid
-
-
-async def admin_check(ctx: commands.Context):
-    if ctx.guild is not None and ctx.guild.id == rcrpguildid:
-        for role in ctx.author.roles:
-            if role.id in staffroles:
-                return True
-        return False
-    else:
-        return True
+async def rcrp_check(interaction: discord.Interaction):
+    return interaction.guild is not None and interaction.guild.id == rcrpguildid
 
 
 class RCRPCommands(commands.Cog):
@@ -41,8 +31,8 @@ class RCRPCommands(commands.Cog):
         self.bot = bot
         self.relay_channel_id = 776943930603470868
 
-    async def send_relay_channel_message(self, ctx: commands.Context, message: str):
-        relaychannel = ctx.guild.get_channel(self.relay_channel_id)
+    async def send_relay_channel_message(self, guild: discord.Guild, message: str):
+        relaychannel = guild.get_channel(self.relay_channel_id)
         await relaychannel.send(message)
 
     @commands.command()
@@ -86,10 +76,27 @@ class RCRPCommands(commands.Cog):
         except discord.HTTPException:
             pass
 
-    @app_commands.command()
+    @app_commands.command(description='View online player count and server IP')
+    @app_commands.guild_only()
+    async def server(self, interaction: discord.Interaction):
+        mysqlinfo = await self.bot.get_shared_api_tokens('mysql')
+        sql = await aiomysql.connect(**mysqlinfo)
+        cursor = await sql.cursor(aiomysql.DictCursor)
+        await cursor.execute("SELECT NULL FROM players WHERE Online = 1")
+        players = cursor.rowcount()
+        await cursor.close()
+        sql.close()
+
+        embed = discord.Embed(title="Red County Roleplay")
+        embed.set_thumbnail(url=interaction.guild.icon.url)
+        embed.add_field(name="Players", value=players, inline=True)
+        embed.add_field(name="IP Address", value="server.redcountyrp.com", inline=True)
+        embed.set_footer(text="Use the /player command to view if a specific player is online")
+        await interaction.response.send_message(embed=embed)
+
+    @app_commands.command(description='View a list of in-game administrators')
     @app_commands.guild_only()
     async def admins(self, interaction: discord.Interaction):
-        """Sends a list of in-game administrators"""
         mysqlconfig = await self.bot.get_shared_api_tokens('mysql')
         sql = await aiomysql.connect(**mysqlconfig)
         cursor = await sql.cursor(aiomysql.DictCursor)
@@ -115,10 +122,9 @@ class RCRPCommands(commands.Cog):
         else:
             await interaction.response.send_message('There are currently no administrators in-game.', ephemeral=True)
 
-    @app_commands.command()
+    @app_commands.command(description='View a list of in-game helpers')
     @app_commands.guild_only()
     async def helpers(self, interaction: discord.Interaction):
-        """Sends a list of in-game helpers"""
         mysqlconfig = await self.bot.get_shared_api_tokens('mysql')
         sql = await aiomysql.connect(**mysqlconfig)
         cursor = await sql.cursor(aiomysql.DictCursor)
@@ -138,35 +144,35 @@ class RCRPCommands(commands.Cog):
 
         await interaction.response.send_message(embed=embed)
 
-    @commands.command()
-    @commands.guild_only()
-    async def player(self, ctx: commands.Context, *, playername: str):
-        """Queries the SA-MP server to see if a player with the specified name is in-game"""
-        playername = playername.replace(' ', '_')
-        playername = discord.utils.escape_mentions(playername)
+    @app_commands.command(description='Queries the SA-MP server to see if a player with the specified name is in-game')
+    @app_commands.describe(player='The name of the player you wish to check')
+    @app_commands.guild_only()
+    async def player(self, interaction: discord.Interaction, *, player: str):
+        player = player.replace(' ', '_')
+        player = discord.utils.escape_mentions(player)
         mysqlconfig = await self.bot.get_shared_api_tokens('mysql')
         sql = await aiomysql.connect(**mysqlconfig)
         cursor = await sql.cursor()
-        await cursor.execute("SELECT NULL FROM players WHERE Name = %s AND Online = 1", (playername, ))
+        await cursor.execute("SELECT NULL FROM players WHERE Name = %s AND Online = 1", (player, ))
 
         if cursor.rowcount == 0:  # player is not in-game
-            await ctx.send(f'{playername} is not currently in-game.')
+            await interaction.response.send_message(f'{player} is not currently in-game.', ephemeral=True)
         else:
-            await ctx.send(f'{playername} is currently in-game.')
+            await interaction.response.send_message(f'{player} is currently in-game.', ephemeral=True)
 
-    @commands.command()
-    @commands.guild_only()
-    async def vehicleinfo(self, ctx: commands.Context, vehicle: str):
-        """Fetches all information related to a vehicle model from the SA-MP server"""
+    @app_commands.command(description='Fetches all information related to a vehicle model from the SA-MP server')
+    @app_commands.describe(vehicle='The vehicle model name you wish to fetch information of')
+    @app_commands.guild_only()
+    async def vehicleinfo(self, interaction: discord.Interaction, vehicle: str):
         rcrp_message = {
             "origin": "rudy",
             "callback": "FetchVehicleInfoForDiscord",
             "vehicle": vehicle,
-            "channel": str(ctx.channel.id)
+            "channel": str(interaction.channel.id)
         }
 
         message = json.dumps(rcrp_message)
-        await self.send_relay_channel_message(ctx, message)
+        await self.send_relay_channel_message(interaction.guild, message)
 
     download = app_commands.Group(name='download', description='Download various SA-MP-related files')
 
@@ -183,3 +189,9 @@ class RCRPCommands(commands.Cog):
     async def codsmp(self, interaction: discord.Interaction):
         file = discord.File(f'{path}/files/codsmp.zip')
         await interaction.response.send_message(file=file)
+
+    @download.command(name='gta', description='GTA: SA Clean Copy Backup')
+    @app_commands.guild_only()
+    @app_commands.check(rcrp_check)
+    async def gta(self, interaction: discord.Interaction):
+        await interaction.response.send_message('https://amii.ir/files/gtasac.7z')
