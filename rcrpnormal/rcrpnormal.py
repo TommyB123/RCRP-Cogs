@@ -83,7 +83,7 @@ class RCRPCommands(commands.Cog):
         sql = await aiomysql.connect(**mysqlinfo)
         cursor = await sql.cursor(aiomysql.DictCursor)
         await cursor.execute("SELECT NULL FROM players WHERE Online = 1")
-        players = cursor.rowcount()
+        players = cursor.rowcount
         await cursor.close()
         sql.close()
 
