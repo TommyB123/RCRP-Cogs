@@ -101,7 +101,7 @@ class RCRPCommands(commands.Cog):
         sql = await aiomysql.connect(**mysqlconfig)
         cursor = await sql.cursor(aiomysql.DictCursor)
         await cursor.execute("SELECT m.Username AS mastername, p.Name AS charactername, (SELECT ps.settingval FROM psettings ps WHERE sqlid = p.id AND ps.setting = 'CSET_AHIDE') AS hidden FROM masters m JOIN players p ON p.MasterAccount = m.id WHERE p.Online = 1 AND m.AdminLevel != 0")
-        data = cursor.fetchall()
+        data = await cursor.fetchall()
         rows = cursor.rowcount
         await cursor.close()
         sql.close()
@@ -113,7 +113,7 @@ class RCRPCommands(commands.Cog):
         embed = discord.Embed(title='In-game Administrators', color=0xf21818, timestamp=interaction.created_at)
         visible = 0
         for admin in data:
-            if admin['hidden'] is not None:
+            if admin['hidden'] != 1:
                 embed.add_field(name=admin['mastername'], value=admin['charactername'])
                 visible += 1
 
@@ -129,7 +129,7 @@ class RCRPCommands(commands.Cog):
         sql = await aiomysql.connect(**mysqlconfig)
         cursor = await sql.cursor(aiomysql.DictCursor)
         await cursor.execute("SELECT m.Username AS mastername, p.Name AS charactername FROM masters m JOIN players p ON p.MasterAccount = m.id WHERE Helper != 0 AND Online = 1")
-        data = cursor.fetchall()
+        data = await cursor.fetchall()
         rows = cursor.rowcount
         await cursor.close()
         sql.close()
