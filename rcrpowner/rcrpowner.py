@@ -75,6 +75,17 @@ weaponnames = {
     55: "Beanbag Shotgun"
 }
 
+drug_names = {
+    'INV_LCOCAINE': 'Low Grade Cocaine',
+    'INV_MCOCAINE': 'Medium Grade Cocaine',
+    'INV_HCOCAINE': 'High Grade Cocaine',
+    'INV_LCRACK': 'Low Grade Crack',
+    'INV_MCRACK': 'Medium Grade Crack',
+    'INV_HCRACK': 'High Grade Crack',
+    'INV_WEED': 'Marijuana',
+    'INV_HEROIN': 'Heroin'
+}
+
 
 class OwnerCog(commands.Cog):
     """Cog containing owner commands for the RCRP discord"""
@@ -143,25 +154,15 @@ class OwnerCog(commands.Cog):
             mysqlconfig = await self.bot.get_shared_api_tokens('mysql')
             sql = await aiomysql.connect(**mysqlconfig)
             cursor = await sql.cursor(aiomysql.DictCursor)
-            await cursor.execute("SELECT SUM(itemval) AS items, item FROM (SELECT * FROM inventory_player UNION SELECT * FROM inventory_house UNION SELECT * FROM inventory_bizz UNION SELECT * FROM inventory_vehicle) t WHERE item IN ('INV_PEYOTE', 'INV_LCOCAINE', 'INV_MCOCAINE', 'INV_HCOCAINE', 'INV_LCRACK', 'INV_MCRACK', 'INV_HCRACK', 'INV_WEED', 'INV_HEROIN') GROUP BY item")
+            await cursor.execute("SELECT SUM(itemval) AS items, item FROM (SELECT * FROM inventory_player UNION SELECT * FROM inventory_house UNION SELECT * FROM inventory_bizz UNION SELECT * FROM inventory_vehicle) t WHERE item IN ('INV_LCOCAINE', 'INV_MCOCAINE', 'INV_HCOCAINE', 'INV_LCRACK', 'INV_MCRACK', 'INV_HCRACK', 'INV_WEED', 'INV_HEROIN') GROUP BY item")
             results = await cursor.fetchall()
-
-            drugs = {}
-            for drug in results:
-                drugs[drug['item']] = drug['items']
-
             await cursor.close()
             sql.close()
 
             embed = discord.Embed(title='RCRP Drug Statistics', color=0xe74c3c, timestamp=ctx.message.created_at)
-            embed.add_field(name='Low Grade Cocaine', value='{:,}'.format(drugs['INV_LCOCAINE']))
-            embed.add_field(name='Medium Grade Cocaine', value='{:,}'.format(drugs['INV_MCOCAINE']))
-            embed.add_field(name='High Grade Cocaine', value='{:,}'.format(drugs['INV_HCOCAINE']))
-            embed.add_field(name='Low Grade Crack', value='{:,}'.format(drugs['INV_LCRACK']))
-            embed.add_field(name='Medium Grade Crack', value='{:,}'.format(drugs['INV_MCRACK']))
-            embed.add_field(name='High Grade Crack', value='{:,}'.format(drugs['INV_HCRACK']))
-            embed.add_field(name='Marijuana', value='{:,}'.format(drugs['INV_WEED']))
-            embed.add_field(name='Heroin', value='{:,}'.format(drugs['INV_HEROIN']))
+            for drug in results:
+                embed.add_field(name=drug_names[drug['item']], value='{:,}'.format(drug['items']))
+
             await ctx.send(embed=embed)
 
     @commands.command()
