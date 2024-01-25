@@ -2,6 +2,7 @@ import discord
 import aiomysql
 from redbot.core import commands, Config
 from redbot.core.bot import Red
+from typing import TypedDict, Union
 
 # roles
 adminrole = 293441894585729024
@@ -15,7 +16,7 @@ rcrpguildid = 93142223473905664
 staffroles = [ownerrole, adminrole, managementrole]
 
 
-async def admin_check(ctx: commands.Context):
+def admin_check(ctx: commands.Context):
     if ctx.guild is not None and ctx.guild.id == rcrpguildid:
         for role in ctx.author.roles:
             if role.id in staffroles:
@@ -29,15 +30,84 @@ def rcrp_check(ctx: commands.Context):
     return (ctx.guild is not None and ctx.guild.id == rcrpguildid)
 
 
+async def management_check(ctx: commands.Context):
+    if ctx.guild is not None and ctx.guild.id == rcrpguildid:
+        role_ids = [role.id for role in ctx.author.roles]
+        if managementrole in role_ids or ownerrole in role_ids:
+            return True
+        else:
+            return False
+    else:
+        return True
+
+
+async def strawman_check(ctx: commands.Context):
+    config = Config.get_conf(RCRPFactions(commands.Cog), 87582156741681152)
+    async with config.suppliers() as suppliers:
+        if ctx.message.author.id in suppliers:
+            return True
+
+    return False
+
+
+def member_is_admin(member: discord.Member):
+    for role in member.roles:
+        if role.id in staffroles:
+            return True
+    return False
+
+
+class RCRPWeapon(TypedDict):
+    name: str
+    weaponid: int
+    ammo: int
+
+
+strawman_weapons: list[RCRPWeapon] = [
+    {"name": "Brass Knuckles", "weaponid": 1, "ammo": 5},
+    {"name": "Knife", "weaponid": 4, "ammo": 5},
+    {"name": "9mm", "weaponid": 22, "ammo": 85},
+    {"name": "Silenced Pistol", "weaponid": 23, "ammo": 85},
+    {"name": "Desert Eagle", "weaponid": 24, "ammo": 70},
+    {"name": "Shotgun", "weaponid": 25, "ammo": 50},
+    {"name": "Sawn-off Shotgun", "weaponid": 26, "ammo": 50},
+    {"name": "Micro Uzi (Mac 10)", "weaponid": 28, "ammo": 200},
+    {"name": "MP5", "weaponid": 29, "ammo": 150},
+    {"name": "AK-47", "weaponid": 30, "ammo": 150},
+    {"name": "M4", "weaponid": 31, "ammo": 200},
+    {"name": "Tec9", "weaponid": 32, "ammo": 200},
+    {"name": "Country Rifle", "weaponid": 33, "ammo": 50}
+]
+
+
+def resolve_strawman_weapon(search: Union[int, str]) -> Union[RCRPWeapon, None]:
+    for weapon in strawman_weapons:
+        if isinstance(search, str):
+            if weapon['name'].lower().find(search.lower()) != -1:
+                return weapon
+        elif isinstance(search, int):
+            if weapon['weaponid'] == search:
+                return weapon
+        else:
+            pass
+
+    return None
+
+
 class RCRPFactions(commands.Cog, name="Faction Commands"):
     def __init__(self, bot: Red):
         default_guild = {
             "factionid": None
         }
 
+        default_global = {
+            "suppliers": []
+        }
+
         self.bot = bot
         self.config = Config.get_conf(self, 87582156741681152)
         self.config.register_guild(**default_guild)
+        self.config.register_global(**default_global)
 
     async def return_faction_name(self, factionid: int):
         mysqlconfig = await self.bot.get_shared_api_tokens('mysql')
@@ -54,6 +124,37 @@ class RCRPFactions(commands.Cog, name="Faction Commands"):
         data = await cursor.fetchone()
         await cursor.close()
         sql.close()
+        return data[0]
+
+    async def return_character_id(self, character: str):
+        character = character.replace(' ', '_')
+        mysqlconfig = await self.bot.get_shared_api_tokens('mysql')
+        sql = await aiomysql.connect(**mysqlconfig)
+        cursor = await sql.cursor()
+        await cursor.execute("SELECT id FROM players WHERE Name = %s", (character, ))
+        rows = cursor.rowcount
+        data = await cursor.fetchone()
+        await cursor.close()
+        sql.close()
+
+        if rows == 0:
+            return 0
+
+        return data[0]
+
+    async def return_master_id_from_discordid(self, id: int):
+        mysqlconfig = await self.bot.get_shared_api_tokens('mysql')
+        sql = await aiomysql.connect(**mysqlconfig)
+        cursor = await sql.cursor()
+        await cursor.execute("SELECT id FROM masters WHERE discordid = %s", (id, ))
+        rows = cursor.rowcount
+        data = await cursor.fetchone()
+        await cursor.close()
+        sql.close()
+
+        if rows == 0:
+            return 0
+
         return data[0]
 
     @commands.Cog.listener()
@@ -207,3 +308,56 @@ class RCRPFactions(commands.Cog, name="Faction Commands"):
         for factioninfo in factiondata:
             embed.add_field(name=factioninfo['name'], value=f"{factioninfo['onlinemembers']}/{factioninfo['members']}", inline=True)
         await ctx.send(embed=embed)
+
+    @commands.command()
+    @commands.guild_only()
+    @commands.check(rcrp_check)
+    @commands.check(management_check)
+    async def makesupplier(self, ctx: commands.Context, member: discord.Member):
+        """Assign strawman supplier permission to a Discord account"""
+        if member_is_admin(member) is False:
+            await ctx.send("You can't assign strawman supplier to non-staff.")
+            return
+
+        async with self.config.suppliers() as suppliers:
+            if member.id in suppliers:
+                suppliers.remove(member.id)
+                await ctx.send(f'You have removed {member.mention} from strawman suppliers.')
+            else:
+                suppliers.append(member.id)
+                await ctx.send(f'You have made {member.mention} a strawman supplier.')
+
+    @commands.command()
+    @commands.guild_only()
+    @commands.check(rcrp_check)
+    @commands.check(admin_check)
+    @commands.check(strawman_check)
+    async def strawman(self, ctx: commands.Context, character_name: str, *, guns: str):
+        character_id = await self.return_character_id(character_name)
+        if character_id == 0:
+            await ctx.send(f'{character_name} is not a valid character.')
+
+        admin_master_id = self.return_master_id_from_discordid(ctx.author.id)
+        if admin_master_id == 0:
+            # unlikely to happen since you need to have an admin role on the discord, but y'know
+            return
+
+        mysqlconfig = await self.bot.get_shared_api_tokens('mysql')
+        sql = await aiomysql.connect(**mysqlconfig)
+        cursor = await sql.cursor()
+
+        final_weapons = ""
+        for gun in guns.split(' '):
+            weapon = resolve_strawman_weapon(gun)
+            if weapon is None:
+                await ctx.send(f"An invalid weapon was supplied ({gun}). This weapon will not be processed, but any other valid weapon included will be.")
+                continue
+
+            final_weapons += f"{weapon['name']}, "
+            await cursor.execute('INSERT INTO refunds_gtac (refund_player_id, refund_admin_id, refund_type, refund_itemtype, refund_subtype, refund_infratype, refund_amount, refund_reason) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)',
+                                 (character_id, admin_master_id, 1, weapon['weaponid'], 8, 0, weapon['ammo'], f'Strawman weapon provided by {ctx.author.display_name}'))
+
+        final_weapons = final_weapons.rstrip(', ')
+        await ctx.send(f'You have issued the following strawman weapons to {character_name}: {final_weapons}')
+        await cursor.close()
+        sql.close()
