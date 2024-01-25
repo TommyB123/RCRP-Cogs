@@ -64,19 +64,12 @@ class RCRPWeapon(TypedDict):
 
 
 strawman_weapons: list[RCRPWeapon] = [
-    {"name": "Brass Knuckles", "weaponid": 1, "ammo": 5},
     {"name": "Knife", "weaponid": 4, "ammo": 5},
     {"name": "9mm", "weaponid": 22, "ammo": 85},
-    {"name": "Silenced Pistol", "weaponid": 23, "ammo": 85},
     {"name": "Desert Eagle", "weaponid": 24, "ammo": 70},
     {"name": "Shotgun", "weaponid": 25, "ammo": 50},
-    {"name": "Sawn-off Shotgun", "weaponid": 26, "ammo": 50},
     {"name": "Micro Uzi (Mac 10)", "weaponid": 28, "ammo": 200},
-    {"name": "MP5", "weaponid": 29, "ammo": 150},
-    {"name": "AK-47", "weaponid": 30, "ammo": 150},
-    {"name": "M4", "weaponid": 31, "ammo": 200},
-    {"name": "Tec9", "weaponid": 32, "ammo": 200},
-    {"name": "Country Rifle", "weaponid": 33, "ammo": 50}
+    {"name": "Tec9", "weaponid": 32, "ammo": 200}
 ]
 
 
@@ -337,7 +330,7 @@ class RCRPFactions(commands.Cog, name="Faction Commands"):
         if character_id == 0:
             await ctx.send(f'{character_name} is not a valid character.')
 
-        admin_master_id = self.return_master_id_from_discordid(ctx.author.id)
+        admin_master_id = await self.return_master_id_from_discordid(ctx.author.id)
         if admin_master_id == 0:
             # unlikely to happen since you need to have an admin role on the discord, but y'know
             return
