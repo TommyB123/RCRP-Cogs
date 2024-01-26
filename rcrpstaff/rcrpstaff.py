@@ -130,6 +130,10 @@ class RCRPStaffCommands(commands.Cog):
         self.bot = bot
         self.relay_channel_id = 776943930603470868
 
+        # remove some of red's default punishment commands to replace with our own
+        self.bot.remove_command('ban')
+        self.bot.remove_command('unban')
+
     async def send_relay_channel_message(self, ctx: commands.Context, message: str):
         relaychannel = ctx.guild.get_channel(self.relay_channel_id)
         await relaychannel.send(message)
@@ -352,15 +356,7 @@ class RCRPStaffCommands(commands.Cog):
         embed.add_field(name='Total Weapons', value='{:,}'.format(total))
         await ctx.send(embed=embed)
 
-    @commands.group()
-    @commands.guild_only()
-    @commands.check(rcrp_check)
-    @commands.check(admin_check)
-    async def punish(self, ctx: commands.Context):
-        """Issues various punishments to Discord members"""
-        pass
-
-    @punish.command()
+    @commands.command()
     @commands.guild_only()
     @commands.check(rcrp_check)
     @commands.check(admin_check)
@@ -383,7 +379,7 @@ class RCRPStaffCommands(commands.Cog):
         await ctx.guild.ban(target, reason=baninfo, delete_message_days=0)
         await ctx.send(f"{target.mention} has been successfully banned.")
 
-    @punish.command()
+    @commands.command()
     @commands.guild_only()
     @commands.check(rcrp_check)
     @commands.check(admin_check)
@@ -402,7 +398,7 @@ class RCRPStaffCommands(commands.Cog):
 
         await ctx.send("Could not find any bans for that user.")
 
-    @punish.command()
+    @commands.command()
     @commands.guild_only()
     @commands.check(rcrp_check)
     @commands.check(admin_check)
@@ -419,7 +415,7 @@ class RCRPStaffCommands(commands.Cog):
                 return
         await ctx.send("Could not find any ban info for that user.")
 
-    @punish.command()
+    @commands.command()
     @commands.guild_only()
     @commands.check(rcrp_check)
     @commands.check(admin_check)
@@ -436,7 +432,7 @@ class RCRPStaffCommands(commands.Cog):
         await member.add_roles(ctx.guild.get_role(mutedrole))
         await ctx.send(f"{member.mention} has been muted.")
 
-    @punish.command()
+    @commands.command()
     @commands.guild_only()
     @commands.check(rcrp_check)
     @commands.check(admin_check)
