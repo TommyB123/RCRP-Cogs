@@ -153,14 +153,15 @@ class RCRPStaffCommands(commands.Cog):
         sql = await aiomysql.connect(**mysqlconfig)
         cursor = await sql.cursor()
         await cursor.execute("SELECT id FROM masters WHERE Username = %s", (mastername, ))
+        rows = cursor.rowcount
         data = await cursor.fetchone()
         await cursor.close()
         sql.close()
 
-        maid = data[0]
-        if maid is None:
-            maid = 0
-        return maid
+        if rows == 0:
+            return 0
+
+        return data[0]
 
     @commands.group()
     @commands.guild_only()
