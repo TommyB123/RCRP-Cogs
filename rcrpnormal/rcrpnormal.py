@@ -180,8 +180,7 @@ class RCRPCommands(commands.Cog):
     @app_commands.guild_only()
     @app_commands.check(rcrp_check)
     async def samp(self, interaction: discord.Interaction):
-        file = discord.File(f'{path}/files/sa-mp-0.3.DL-R1-install.exe.zip')
-        await interaction.response.send_message(file=file)
+        await interaction.response.send_message("Download the latest `omp-launcher-setup.exe` file from [here.](https://github.com/openmultiplayer/launcher/releases)\nInstall to your game directory and then make sure to select 0.3.DL when joining the server.")
 
     @download.command(name='codsmp', description='Cods MP mod')
     @app_commands.guild_only()
