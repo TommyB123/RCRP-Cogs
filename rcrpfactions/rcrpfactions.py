@@ -66,6 +66,7 @@ class RCRPWeapon(TypedDict):
 strawman_weapons: list[RCRPWeapon] = [
     {"name": "Knife", "weaponid": 4, "ammo": 5},
     {"name": "9mm", "weaponid": 22, "ammo": 85},
+    {"name": "Silenced Pistol", "weaponid": 23, "ammo": 85},
     {"name": "Desert Eagle", "weaponid": 24, "ammo": 70},
     {"name": "Shotgun", "weaponid": 25, "ammo": 50},
     {"name": "Micro Uzi (Mac 10)", "weaponid": 28, "ammo": 200},
