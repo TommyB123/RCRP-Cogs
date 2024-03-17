@@ -613,7 +613,7 @@ class RCRPStaffCommands(commands.Cog):
     @commands.check(admin_check)
     async def avatar(self, ctx: commands.Context, member: discord.Member):
         """Fetches the avatar of a Discord member"""
-        await ctx.send(f'Avatar of {member.mention}: {member.avatar.url}')
+        await ctx.send(f'Avatar of {member.mention}: {member.display_avatar.url}')
 
     @commands.group()
     @commands.guild_only()
