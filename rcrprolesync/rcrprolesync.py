@@ -118,6 +118,8 @@ class RCRPRoleSync(commands.Cog, name="RCRP Role Sync"):
             await cursor.execute('SELECT masters.discordid FROM bans JOIN masters ON bans.MasterAccount = masters.id WHERE discordid != 0')
         elif role_id == premiumrole:
             await cursor.execute("SELECT m.discordid FROM asettings a JOIN masters m ON m.id = a.sqlid  WHERE setting = 'ASET_PREMIUM' and m.discordid != 0")
+        elif role_id == farole:
+            await cursor.execute("SELECT m.discordid FROM asettings a JOIN masters m on m.id = a.sqlid WHERE setting = 'ASET_FACTIONADMIN' and m.discordid != 0")
         else:
             await cursor.execute(f"SELECT discordid FROM masters WHERE {field} != 0 AND discordid != 0")
 
