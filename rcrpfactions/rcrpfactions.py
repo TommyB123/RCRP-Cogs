@@ -330,6 +330,7 @@ class RCRPFactions(commands.Cog, name="Faction Commands"):
         character_id = await self.return_character_id(character_name)
         if character_id == 0:
             await ctx.send(f'{character_name} is not a valid character.')
+            return
 
         admin_master_id = await self.return_master_id_from_discordid(ctx.author.id)
         if admin_master_id == 0:
