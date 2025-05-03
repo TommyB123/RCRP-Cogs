@@ -48,14 +48,10 @@ class model_types():
     async def is_valid_model(self, modelid: int):
         """Queries the MySQL database to see if a model ID exists"""
         mysqlconfig = await self.bot.get_shared_api_tokens('mysql')
-        sql = await aiomysql.connect(**mysqlconfig)
-        cursor = await sql.cursor()
-        await cursor.execute("SELECT NULL FROM models WHERE modelid = %s", (modelid, ))
-        rows = cursor.rowcount
-        await cursor.close()
-        sql.close()
-
-        return rows != 0
+        async with aiomysql.connect(**mysqlconfig) as sql:
+            async with sql.cursor() as cursor:
+                rows = await cursor.execute("SELECT NULL FROM models WHERE modelid = %s", (modelid, ))
+                return rows != 0
 
     def is_valid_model_type(self, modeltype: str):
         """Checks if the supplied string matches a valid model type. Valid types are 'PED' or 'OBJECT'"""
@@ -95,6 +91,9 @@ class RCRPModelManager(commands.Cog):
         self.rcrp_model_path = "/home/rcrp/domains/cdn.redcountyrp.com/public_html/rcrp"  # path of RCRP models
         self.rcrp_guild_id = 93142223473905664
         self.relay_channel_id = 776943930603470868
+
+    async def cog_load(self):
+        self.mysqlinfo = await self.bot.get_shared_api_tokens('mysql')
 
     async def send_relay_channel_message(self, message: str):
         rcrpguild = await self.bot.fetch_guild(self.rcrp_guild_id)
@@ -218,31 +217,26 @@ class RCRPModelManager(commands.Cog):
             await ctx.send(f'{modelid} is not a model ID that is used on the server.')
             return
 
-        mysqlconfig = await self.bot.get_shared_api_tokens('mysql')
-        sql = await aiomysql.connect(**mysqlconfig)
-        cursor = await sql.cursor(aiomysql.DictCursor)
+        async with aiomysql.connect(**self.mysqlinfo) as sql:
+            async with sql.cursor() as cursor:
+                if deletefiles:
+                    await cursor.execute("SELECT * FROM models WHERE modelid = %s", (modelid, ))
+                    data = await cursor.fetchone()
+                    modelfolder = data['folder']
+                    model_dff = data['dff_name']
+                    model_txd = data['txd_name']
+                    model_path = f'{self.rcrp_model_path}/{modelfolder}'
 
-        if deletefiles:
-            await cursor.execute("SELECT * FROM models WHERE modelid = %s", (modelid, ))
-            data = await cursor.fetchone()
-            modelfolder = data['folder']
-            model_dff = data['dff_name']
-            model_txd = data['txd_name']
-            model_path = f'{self.rcrp_model_path}/{modelfolder}'
+                    if os.path.isfile(f'{model_path}/{model_dff}'):
+                        os.remove(f'{model_path}/{model_dff}')
+                    if os.path.isfile(f'{model_path}/{model_txd}'):
+                        os.remove(f'{model_path}/{model_txd}')
 
-            if os.path.isfile(f'{model_path}/{model_dff}'):
-                os.remove(f'{model_path}/{model_dff}')
-            if os.path.isfile(f'{model_path}/{model_txd}'):
-                os.remove(f'{model_path}/{model_txd}')
+                    remaining_files = os.listdir(model_path)
+                    if len(remaining_files) == 0:  # folder is empty, delete it
+                        os.rmdir(model_path)
 
-            remaining_files = os.listdir(model_path)
-            if len(remaining_files) == 0:  # folder is empty, delete it
-                os.rmdir(model_path)
-
-        await cursor.execute("DELETE FROM models WHERE modelid = %s", (modelid, ))
-        await cursor.close()
-        sql.close()
-
+                await cursor.execute("DELETE FROM models WHERE modelid = %s", (modelid, ))
         await ctx.send(f'Model {modelid} has been deleted from the MySQL database and will not be loaded on the next server restart.')
 
     @modelmanager.command()
@@ -274,54 +268,43 @@ class RCRPModelManager(commands.Cog):
             await ctx.send(f'{modelid} is not a valid model ID used on the server.')
             return
 
-        mysqlconfig = await self.bot.get_shared_api_tokens('mysql')
-        sql = await aiomysql.connect(**mysqlconfig)
-        cursor = await sql.cursor(aiomysql.DictCursor)
-        await cursor.execute("SELECT * FROM models WHERE modelid = %s", (modelid, ))
-        results = await cursor.fetchone()
-        model = model_data(results)
-        await cursor.close()
-        sql.close()
+        async with aiomysql.connect(**self.mysqlinfo) as sql:
+            async with sql.cursor(aiomysql.DictCursor) as cursor:
+                await cursor.execute("SELECT * FROM models WHERE modelid = %s", (modelid, ))
+                results = await cursor.fetchone()
+                model = model_data(results)
 
-        url_path = model.model_path.replace(' ', '%20')
-        embed = discord.Embed(title=f'Model Information ({modelid})', color=0xe74c3c)
-        embed.add_field(name='TXD', value=model.txd_name, inline=False)
-        embed.add_field(name='DFF', value=model.dff_name, inline=False)
-        embed.add_field(name='Model Type', value=model.model_type, inline=False)
-        embed.add_field(name='Model Path', value=model.model_path, inline=False)
-        embed.add_field(name='DFF URL', value=f"https://redcountyrp.com/cdn/rcrp/{url_path}/{model.dff_name}", inline=False)
-        embed.add_field(name='TXD URL', value=f"https://redcountyrp.com/cdn/rcrp/{url_path}/{model.txd_name}", inline=False)
-        if model_types().model_type_int(model.model_type) == model_types().model_type_ped:
-            embed.add_field(name='Artconfig', value=f'AddCharModel({model.reference_model}, {model.model_id}, "{model.dff_name}", "{model.txd_name}");')
-        else:
-            embed.add_field(name='Artconfig', value=f'AddSimpleModel(-1, {model.reference_model}, {model.model_id}, "{model.dff_name}", "{model.txd_name}");')
-        await ctx.send(embed=embed)
+                url_path = model.model_path.replace(' ', '%20')
+                embed = discord.Embed(title=f'Model Information ({modelid})', color=0xe74c3c)
+                embed.add_field(name='TXD', value=model.txd_name, inline=False)
+                embed.add_field(name='DFF', value=model.dff_name, inline=False)
+                embed.add_field(name='Model Type', value=model.model_type, inline=False)
+                embed.add_field(name='Model Path', value=model.model_path, inline=False)
+                embed.add_field(name='DFF URL', value=f"https://redcountyrp.com/cdn/rcrp/{url_path}/{model.dff_name}", inline=False)
+                embed.add_field(name='TXD URL', value=f"https://redcountyrp.com/cdn/rcrp/{url_path}/{model.txd_name}", inline=False)
+                if model_types().model_type_int(model.model_type) == model_types().model_type_ped:
+                    embed.add_field(name='Artconfig', value=f'AddCharModel({model.reference_model}, {model.model_id}, "{model.dff_name}", "{model.txd_name}");')
+                else:
+                    embed.add_field(name='Artconfig', value=f'AddSimpleModel(-1, {model.reference_model}, {model.model_id}, "{model.dff_name}", "{model.txd_name}");')
+                await ctx.send(embed=embed)
 
     @modelmanager.command()
     @commands.is_owner()
     async def search(self, ctx: commands.Context, search: str):
         """Searches the database to find models of the specified type with the search term in their DFF name"""
-        mysqlconfig = await self.bot.get_shared_api_tokens('mysql')
-        sql = await aiomysql.connect(**mysqlconfig)
-        cursor = await sql.cursor(aiomysql.DictCursor)
+        async with aiomysql.connect(**self.mysqlinfo) as sql:
+            async with sql.cursor(aiomysql.DictCursor) as cursor:
+                rows = await cursor.execute("SELECT * FROM models WHERE dff_name LIKE %s", (('%' + search + '%'), ))
+                if rows == 0:
+                    await ctx.send('Could not find a model of that type based on your search term.')
+                    return
 
-        await cursor.execute("SELECT * FROM models WHERE dff_name LIKE %s", (('%' + search + '%'), ))
-        if cursor.rowcount == 0:
-            await cursor.close()
-            sql.close()
-            await ctx.send('Could not find a model of that type based on your search term.')
-            return
-
-        data = await cursor.fetchall()
-        await cursor.close()
-        sql.close()
-
-        embed = discord.Embed(title='Search Results', color=0xe74c3c)
-        for model in data:
-            embed.add_field(name='Model ID', value=model['modelid'], inline=True)
-            embed.add_field(name='DFF Name', value=model['dff_name'], inline=True)
-            embed.add_field(name='TXD Name', value=model['txd_name'], inline=True)
-        await ctx.send(embed=embed)
+                embed = discord.Embed(title='Search Results', color=0xe74c3c)
+                async for model in cursor.fetchall():
+                    embed.add_field(name='Model ID', value=model['modelid'], inline=True)
+                    embed.add_field(name='DFF Name', value=model['dff_name'], inline=True)
+                    embed.add_field(name='TXD Name', value=model['txd_name'], inline=True)
+                await ctx.send(embed=embed)
 
     @modelmanager.command()
     @commands.is_owner()
@@ -366,26 +349,23 @@ class RCRPModelManager(commands.Cog):
 
         # insert the models into the MySQL database and then move them to the correct directories
         await ctx.send('Inserting new models into the MySQL database and moving them to their correct folders.')
-        mysqlconfig = await self.bot.get_shared_api_tokens('mysql')
-        sql = await aiomysql.connect(**mysqlconfig)
-        cursor = await sql.cursor()
-        async with ctx.typing():
-            for model in model_list:
-                model_id_list.append(f'{model.model_id}')
-                await cursor.execute("INSERT INTO models (modelid, reference_model, modeltype, dff_name, txd_name, folder) VALUES (%s, %s, %s, %s, %s, %s)", (model.model_id, model.reference_model, model_types().model_type_int(model.model_type), model.dff_name, model.txd_name, model.model_path))
-                destinationfolder = f'{self.rcrp_model_path}/{model.model_path}'
+        async with aiomysql.connect(**self.mysqlinfo) as sql:
+            async with sql.cursor() as cursor:
+                async with ctx.typing():
+                    for model in model_list:
+                        model_id_list.append(f'{model.model_id}')
+                        await cursor.execute("INSERT INTO models (modelid, reference_model, modeltype, dff_name, txd_name, folder) VALUES (%s, %s, %s, %s, %s, %s)",
+                                             (model.model_id, model.reference_model, model_types().model_type_int(model.model_type), model.dff_name, model.txd_name, model.model_path))
 
-                if os.path.exists(destinationfolder) is False:
-                    await aiofiles.os.mkdir(destinationfolder)
+                        destinationfolder = f'{self.rcrp_model_path}/{model.model_path}'
+                        if os.path.exists(destinationfolder) is False:
+                            await aiofiles.os.mkdir(destinationfolder)
 
-                if os.path.isfile(f'{tempfolder}/{model.dff_name}') and os.path.isfile(f'{destinationfolder}/{model.dff_name}') is False:
-                    await aiofiles.os.rename(f'{tempfolder}/{model.dff_name}', f'{destinationfolder}/{model.dff_name}')
+                        if os.path.isfile(f'{tempfolder}/{model.dff_name}') and os.path.isfile(f'{destinationfolder}/{model.dff_name}') is False:
+                            await aiofiles.os.rename(f'{tempfolder}/{model.dff_name}', f'{destinationfolder}/{model.dff_name}')
 
-                if os.path.isfile(f'{tempfolder}/{model.txd_name}') and os.path.isfile(f'{destinationfolder}/{model.txd_name}') is False:
-                    await aiofiles.os.rename(f'{tempfolder}/{model.txd_name}', f'{destinationfolder}/{model.txd_name}')
-
-        await cursor.close()
-        sql.close()
+                        if os.path.isfile(f'{tempfolder}/{model.txd_name}') and os.path.isfile(f'{destinationfolder}/{model.txd_name}') is False:
+                            await aiofiles.os.rename(f'{tempfolder}/{model.txd_name}', f'{destinationfolder}/{model.txd_name}')
 
         # send a message to the rcrp game server so it'll load the models
         message = humanize_list(model_id_list)

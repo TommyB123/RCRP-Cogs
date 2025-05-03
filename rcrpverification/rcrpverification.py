@@ -30,63 +30,51 @@ class RcrpLogin(discord.ui.Modal, title='RCRP account login'):
         password = self.password_entry.value.encode()
 
         mysqlconfig = await bot.get_shared_api_tokens('mysql')
-        sql = await aiomysql.connect(**mysqlconfig)
-        cursor = await sql.cursor(aiomysql.DictCursor)
-
-        await cursor.execute('SELECT id, Password, State, Helper, Tester, AdminLevel, discordid FROM masters WHERE Username = %s', (username, ))
-        data = await cursor.fetchone()
-
-        if data is None:
-            await interaction.response.send_message("Invalid account name.", ephemeral=True)
-            await cursor.close()
-            sql.close()
-            return
-
-        if data['State'] != 1:
-            await interaction.response.send_message("You cannot verify your Master Account if you have not passed the roleplay quiz and been whitelisted on the server.\nIf you're looking for help with the registration process, visit [our forums](https://forum.redcountyrp.com) for more info.", ephemeral=True)
-            await cursor.close()
-            sql.close()
-            return
-
-        if data['discordid'] != 0:
-            user = bot.get_user(data['discordid'])
-            if user is not None:
-                guild = await bot.fetch_guild(rcrpguildid)
-                bans = [ban async for ban in guild.bans(limit=2000) if ban.user.id == user.id]
-                if len(bans):
-                    await cursor.close()
-                    sql.close()
-                    await interaction.response.send_message("This RCRP account is linked to a discord account that is banned from the RCRP discord.")
+        async with aiomysql.connect(**mysqlconfig) as sql:
+            async with sql.cursor() as cursor:
+                rows = await cursor.execute('SELECT id, Password, State, Helper, Tester, AdminLevel, discordid FROM masters WHERE Username = %s', (username, ))
+                if rows == 0:
+                    await interaction.response.send_message("Invalid account name.", ephemeral=True)
                     return
-            await cursor.execute("UPDATE masters SET discordid = 0 WHERE id = %s", (data['id'], ))
 
-        stored_password = data['Password'].encode()
-        password_match = bcrypt.checkpw(password, stored_password)
+                data = await cursor.fetchone()
+                if data['State'] != 1:
+                    await interaction.response.send_message("You cannot verify your Master Account if you have not passed the roleplay quiz and been whitelisted on the server.\nIf you're looking for help with the registration process, visit [our forums](https://forum.redcountyrp.com) for more info.", ephemeral=True)
+                    return
 
-        if password_match is False:
-            await cursor.close()
-            sql.close()
-            await interaction.response.send_message("You have entered an invalid password. If you've forgotten your account's password, please submit a [password reset request](https://redcountyrp.com/password/reset).", ephemeral=True)
-            return
+                if data['discordid'] != 0:
+                    user = bot.get_user(data['discordid'])
+                    if user is not None:
+                        guild = await bot.fetch_guild(rcrpguildid)
+                        bans = [ban async for ban in guild.bans(limit=2000) if ban.user.id == user.id]
+                        if len(bans):
+                            await interaction.response.send_message("This RCRP account is linked to a discord account that is banned from the RCRP discord.")
+                            return
+                    await cursor.execute("UPDATE masters SET discordid = 0 WHERE id = %s", (data['id'], ))
 
-        verified_member: discord.Member = interaction.user
-        newroles = []
-        newroles.append(interaction.guild.get_role(verifiedrole))
-        if data['Helper'] == 1:  # guy is helper
-            newroles.append(interaction.guild.get_role(helperrole))
-        if data['Tester'] == 1:  # guy is tester
-            newroles.append(interaction.guild.get_role(testerrole))
-        if data['AdminLevel'] != 0:  # guy is admin
-            newroles.append(interaction.guild.get_role(adminrole))
-        if data['AdminLevel'] == 4:  # guy is management
-            newroles.append(interaction.guild.get_role(managementrole))
-        await verified_member.add_roles(*newroles)
+                stored_password = data['Password'].encode()
+                password_match = bcrypt.checkpw(password, stored_password)
 
-        await cursor.execute("UPDATE masters SET discordid = %s WHERE id = %s", (verified_member.id, data['id'], ))
-        await cursor.close()
-        sql.close()
+                if password_match is False:
+                    await interaction.response.send_message("You have entered an invalid password. If you've forgotten your account's password, please submit a [password reset request](https://redcountyrp.com/password/reset).", ephemeral=True)
+                    return
 
-        await interaction.response.send_message(f'You have successfully linked your Discord account ({interaction.user.mention}) to the RCRP account {username}!', ephemeral=True)
+                verified_member: discord.Member = interaction.user
+                newroles = []
+                newroles.append(interaction.guild.get_role(verifiedrole))
+                if data['Helper'] == 1:  # guy is helper
+                    newroles.append(interaction.guild.get_role(helperrole))
+                if data['Tester'] == 1:  # guy is tester
+                    newroles.append(interaction.guild.get_role(testerrole))
+                if data['AdminLevel'] != 0:  # guy is admin
+                    newroles.append(interaction.guild.get_role(adminrole))
+                if data['AdminLevel'] == 4:  # guy is management
+                    newroles.append(interaction.guild.get_role(managementrole))
+                await verified_member.add_roles(*newroles)
+
+                await cursor.execute("UPDATE masters SET discordid = %s WHERE id = %s", (verified_member.id, data['id'], ))
+
+                await interaction.response.send_message(f'You have successfully linked your Discord account ({interaction.user.mention}) to the RCRP account {username}!', ephemeral=True)
 
 
 # command checks
@@ -122,16 +110,14 @@ class RCRPVerification(commands.Cog, name="RCRP Verification"):
     def __init__(self, bot: Red):
         self.bot = bot
 
-    async def account_linked_to_discord(self, discordid: int):
-        mysqlconfig = await self.bot.get_shared_api_tokens('mysql')
-        sql = await aiomysql.connect(**mysqlconfig)
-        cursor = await sql.cursor()
-        await cursor.execute("SELECT NULL FROM masters WHERE discordid = %s", (discordid, ))
-        data = await cursor.fetchone()
-        await cursor.close()
-        sql.close()
+    async def cog_load(self):
+        self.mysqlinfo = await self.bot.get_shared_api_tokens('mysql')
 
-        return (data is not None)
+    async def account_linked_to_discord(self, discordid: int):
+        async with aiomysql.connect(**self.mysqlinfo) as sql:
+            async with sql.cursor() as cursor:
+                rows = await cursor.execute("SELECT NULL FROM masters WHERE discordid = %s", (discordid, ))
+                return rows != 0
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -170,12 +156,9 @@ class RCRPVerification(commands.Cog, name="RCRP Verification"):
             await ctx.send("MA is already verified")
             return
 
-        mysqlconfig = await self.bot.get_shared_api_tokens('mysql')
-        sql = await aiomysql.connect(**mysqlconfig)
-        cursor = await sql.cursor()
-        await cursor.execute("UPDATE masters SET discordid = %s, discordcode = 0 WHERE Username = %s", (member.id, masteraccount))
-        await cursor.close()
-        sql.close()
+        async with aiomysql.connect(**self.mysqlinfo) as sql:
+            async with sql.cursor() as cursor:
+                await cursor.execute("UPDATE masters SET discordid = %s, discordcode = 0 WHERE Username = %s", (member.id, masteraccount))
 
         await member.add_roles(ctx.guild.get_role(verifiedrole))
         await ctx.send(f"{member.mention} has been manually verified as {masteraccount}")
@@ -190,13 +173,10 @@ class RCRPVerification(commands.Cog, name="RCRP Verification"):
             await ctx.send("This user is not verified")
             return
 
-        mysqlconfig = await self.bot.get_shared_api_tokens('mysql')
-        sql = await aiomysql.connect(**mysqlconfig)
-        cursor = await sql.cursor()
-        await cursor.execute("DELETE FROM discordroles WHERE discorduser = %s", (member.id, ))
-        await cursor.execute("UPDATE masters SET discordid = 0 WHERE discordid = %s", (member.id, ))
-        await cursor.close()
-        sql.close()
+        async with aiomysql.connect(**self.mysqlinfo) as sql:
+            async with sql.cursor() as cursor:
+                await cursor.execute("DELETE FROM discordroles WHERE discorduser = %s", (member.id, ))
+                await cursor.execute("UPDATE masters SET discordid = 0 WHERE discordid = %s", (member.id, ))
 
         await ctx.send(f"{member.mention} has been unverified.")
 
@@ -206,15 +186,11 @@ class RCRPVerification(commands.Cog, name="RCRP Verification"):
     @commands.check(management_check)
     async def softunverify(self, ctx: commands.Context, discordid: int):
         """Unlinks an RCRP account from a Discord ID. Useful for when a Discord account no longer exists or is no longer used by its owner"""
-        mysqlconfig = await self.bot.get_shared_api_tokens('mysql')
-        sql = await aiomysql.connect(**mysqlconfig)
-        cursor = await sql.cursor()
-        await cursor.execute("UPDATE masters SET discordid = 0 WHERE discordid = %s", (discordid, ))
+        async with aiomysql.connect(**self.mysqlinfo) as sql:
+            async with sql.cursor() as cursor:
+                rows = await cursor.execute("UPDATE masters SET discordid = 0 WHERE discordid = %s", (discordid, ))
 
-        if cursor.rowcount != 0:
-            await ctx.send(f"Discord ID {discordid} has been unlinked from its MA.")
-        else:
-            await ctx.send(f"There are no accounts linked to Discord ID {discordid}")
-
-        await cursor.close()
-        sql.close()
+                if rows != 0:
+                    await ctx.send(f"Discord ID {discordid} has been unlinked from its MA.")
+                else:
+                    await ctx.send(f"There are no accounts linked to Discord ID {discordid}")

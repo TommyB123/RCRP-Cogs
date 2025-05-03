@@ -15,6 +15,9 @@ class RCRPPrison(commands.Cog, name="RCRP Prison"):
     def __init__(self, bot: Red):
         self.bot = bot
 
+    async def cog_load(self):
+        self.mysqlinfo = await self.bot.get_shared_api_tokens('mysql')
+
     @commands.group()
     @commands.guild_only()
     @commands.check(prison_check)
@@ -27,31 +30,21 @@ class RCRPPrison(commands.Cog, name="RCRP Prison"):
     @commands.check(prison_check)
     async def inmates(self, ctx: commands.Context):
         """Fetches a list of inmates that are currently in-game"""
-        mysqlconfig = await self.bot.get_shared_api_tokens('mysql')
-        sql = await aiomysql.connect(**mysqlconfig)
-        cursor = await sql.cursor()
+        async with aiomysql.connect(**self.mysqlinfo) as sql:
+            async with sql.cursor(aiomysql.DictCursor) as cursor:
+                rows = await cursor.execute("SELECT players.Name, masters.Username, settingval, extra1 FROM psettings LEFT JOIN players ON psettings.sqlid = players.id LEFT JOIN masters ON players.MasterAccount = masters.id WHERE setting = 6 AND players.Online = 1")
+                if rows == 0:
+                    await ctx.send('There are currently no online prisoners.')
+                    return
 
-        await cursor.execute("SELECT players.Name, masters.Username, settingval, extra1 FROM psettings LEFT JOIN players ON psettings.sqlid = players.id LEFT JOIN masters ON players.MasterAccount = masters.id WHERE setting = 6 AND players.Online = 1")
-        if cursor.rowcount == 0:
-            await cursor.close()
-            sql.close()
-            await ctx.send('There are currently no online prisoners.')
-            return
+                prisonstring = ''
+                async for prisoner in cursor.fetchall():
+                    minutes = "minutes" if cursor.rowcount != 1 else "minute"
+                    prisonstring += f"{prisoner['Name'].replace('_', ' ')} ({prisoner['Username']}) - Cell {prisoner['settingval']} ({prisoner['extra1']} {minutes} remaining)\n"
 
-        prisoners = await cursor.fetchall()
-        prisonstring = []
-        for prisoner in prisoners:
-            minutes = "minutes" if cursor.rowcount != 1 else "minute"
-            prisonstring.append(f'{prisoner[0]} ({prisoner[1]}) - Cell {prisoner[3]} ({prisoner[2]} {minutes} remaining)')
-        prisonstring = '\n'.join(prisonstring)
-        prisonstring = prisonstring.replace('_', ' ')
-
-        embed = discord.Embed(title=f'Online Prisoners ({cursor.rowcount})', description=prisonstring, color=0xe74c3c)
-        embed.timestamp = ctx.message.created_at
-        await ctx.send(embed=embed)
-
-        await cursor.close()
-        sql.close()
+                embed = discord.Embed(title=f'Online Prisoners ({cursor.rowcount})', description=prisonstring, color=0xe74c3c)
+                embed.timestamp = ctx.message.created_at
+                await ctx.send(embed=embed)
 
     @prison.command()
     @commands.guild_only()

@@ -11,25 +11,25 @@ class RCRPSampInfo(commands.Cog, name="SA-MP Server Info"):
         self.update_samp_info.add_exception_type(aiomysql.Error)
         self.update_samp_info.start()
 
+    async def cog_load(self):
+        self.mysqlinfo = await self.bot.get_shared_api_tokens('mysql')
+
     def cog_unload(self):
         self.update_samp_info.cancel()
 
     @tasks.loop(seconds=1)
     async def update_samp_info(self):
-        mysqlconfig = await self.bot.get_shared_api_tokens('mysql')
-        sql = await aiomysql.connect(**mysqlconfig)
-        cursor = await sql.cursor()
-        await cursor.execute("SELECT SUM(Online) AS playercount FROM players WHERE Online = 1")
-        data = await cursor.fetchone()
-        await cursor.close()
-        sql.close()
+        async with aiomysql.connect(**self.mysqlinfo) as sql:
+            async with sql.cursor() as cursor:
+                await cursor.execute("SELECT SUM(Online) AS playercount FROM players WHERE Online = 1")
+                data = await cursor.fetchone()
 
-        players = data[0]
-        if players is None:
-            players = 0
+                players = data[0]
+                if players is None:
+                    players = 0
 
-        game = discord.Game(f'RCRP - {players} {"players" if players != 1 else "player"}')
-        await self.bot.change_presence(activity=game)
+                game = discord.Game(f'RCRP - {players} {"players" if players != 1 else "player"}')
+                await self.bot.change_presence(activity=game)
 
     @update_samp_info.before_loop
     async def before_update_samp_info(self):

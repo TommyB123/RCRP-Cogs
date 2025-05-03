@@ -1,6 +1,5 @@
 import discord
 import aiomysql
-from aiomysql import Cursor
 from discord.ext import tasks
 from redbot.core import commands
 from redbot.core.bot import Red
@@ -18,6 +17,9 @@ class RCRPApplications(commands.Cog, name='RCRP Applications'):
         self.applications = {}
         self.check_pending_applications.start()
 
+    async def cog_load(self):
+        self.mysqlinfo = await self.bot.get_shared_api_tokens('mysql')
+
     def cog_unload(self):
         self.check_pending_applications.cancel()
 
@@ -31,44 +33,44 @@ class RCRPApplications(commands.Cog, name='RCRP Applications'):
         try:
             rcrpguild = await self.bot.fetch_guild(rcrpguildid)
             appchannel: discord.TextChannel = self.bot.get_channel(appchannelid)
-            mysqlconfig = await self.bot.get_shared_api_tokens('mysql')
-            sql = await aiomysql.connect(**mysqlconfig)
-            cursor: Cursor = await sql.cursor(aiomysql.DictCursor)
-            await cursor.execute("SELECT quizapps.id, maID, masters.Username, masters.EMail, characterName, quizapps.created_at, ipscore FROM quizapps JOIN masters ON quizapps.maID = masters.id WHERE quizapps.state = 0")
+            async with aiomysql.connect(**self.mysqlinfo) as sql:
+                async with sql.cursor() as cursor:
+                    await cursor.execute("SELECT quizapps.id, maID, masters.Username, masters.EMail, characterName, quizapps.created_at, ipscore FROM quizapps JOIN masters ON quizapps.maID = masters.id WHERE quizapps.state = 0")
 
-            application_ids = []
-            if cursor.rowcount != 0:
-                data = await cursor.fetchall()
-                for row in data:
-                    application_ids.append(row['id'])
-                    if row['id'] not in self.applications:
-                        embed = discord.Embed(title="Click here to go to the application", url=f"https://redcountyrp.com/admin/applications/{row['id']}", color=0x008080)
-                        embed.set_author(name="RCRP Application", url=f"https://redcountyrp.com/admin/applications/{row['id']}", icon_url=rcrpguild.icon.url)
-                        embed.add_field(name="Username", value=row['Username'], inline=True)
-                        embed.add_field(name="Email", value=row['EMail'], inline=True)
-                        embed.add_field(name="Character ", value=row['characterName'], inline=True)
-                        embed.add_field(name="IP Score", value=row['ipscore'], inline=True)
-                        embed.timestamp = row['created_at']
-                        message: discord.Message = await appchannel.send(embed=embed)
-                        self.applications[row['id']] = message.id
-            else:
-                messages = [message async for message in appchannel.history() if not message.pinned]
-                if len(messages) != 0:
-                    await appchannel.delete_messages(messages)
-                    self.applications.clear()
+                    application_ids = []
+                    if cursor.rowcount != 0:
+                        data = await cursor.fetchall()
+                        for row in data:
+                            application_ids.append(row['id'])
+                            if row['id'] not in self.applications:
+                                embed = discord.Embed(title="Click here to go to the application", url=f"https://redcountyrp.com/admin/applications/{row['id']}", color=0x008080)
+                                embed.set_author(name="RCRP Application", url=f"https://redcountyrp.com/admin/applications/{row['id']}", icon_url=rcrpguild.icon.url)
+                                embed.add_field(name="Username", value=row['Username'], inline=True)
+                                embed.add_field(name="Email", value=row['EMail'], inline=True)
+                                embed.add_field(name="Character ", value=row['characterName'], inline=True)
+                                embed.add_field(name="IP Score", value=row['ipscore'], inline=True)
+                                embed.timestamp = row['created_at']
+                                message: discord.Message = await appchannel.send(embed=embed)
+                                self.applications[row['id']] = message.id
+                    else:
+                        messages = [message async for message in appchannel.history() if not message.pinned]
+                        if len(messages) != 0:
+                            await appchannel.delete_messages(messages)
+                            self.applications.clear()
 
-            if len(self.applications) != 0:
-                keys = []
-                for key in self.applications:
-                    if key not in application_ids:
-                        message = await appchannel.fetch_message(self.applications[key])
-                        await message.delete()
-                        keys.append(key)
+                    if len(self.applications) != 0:
+                        keys = []
+                        for key in self.applications:
+                            if key not in application_ids:
+                                message = await appchannel.fetch_message(self.applications[key])
+                                await message.delete()
+                                keys.append(key)
 
-                for key in keys:
-                    del self.applications[key]
+                        for key in keys:
+                            del self.applications[key]
 
-            await appchannel.edit(name=f'applications-{cursor.rowcount}')
+                    await appchannel.edit(name=f'applications-{cursor.rowcount}')
+
         except Exception as e:
             await self.log(f'{e}')
 

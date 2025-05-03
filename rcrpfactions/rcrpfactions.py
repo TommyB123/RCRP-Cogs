@@ -103,53 +103,41 @@ class RCRPFactions(commands.Cog, name="Faction Commands"):
         self.config.register_guild(**default_guild)
         self.config.register_global(**default_global)
 
+    async def cog_load(self):
+        self.mysqlinfo = await self.bot.get_shared_api_tokens('mysql')
+
     async def return_faction_name(self, factionid: int):
-        mysqlconfig = await self.bot.get_shared_api_tokens('mysql')
-        sql = await aiomysql.connect(**mysqlconfig)
-        cursor = await sql.cursor()
-        await cursor.execute("SELECT FactionName FROM factions WHERE id = %s", (factionid, ))
+        async with aiomysql.connect(**self.mysqlinfo) as sql:
+            async with sql.cursor() as cursor:
+                await cursor.execute("SELECT FactionName FROM factions WHERE id = %s", (factionid, ))
 
-        if cursor.rowcount == 0:
-            await cursor.close()
-            sql.close()
-            print(f"An invalid faction ID was passed to return_faction_name ({factionid})")
-            return "Unknown"
+                if cursor.rowcount == 0:
+                    print(f"An invalid faction ID was passed to return_faction_name ({factionid})")
+                    return "Unknown"
 
-        data = await cursor.fetchone()
-        await cursor.close()
-        sql.close()
-        return data[0]
+                data = await cursor.fetchone()
+                return data[0]
 
     async def return_character_id(self, character: str):
         character = character.replace(' ', '_')
-        mysqlconfig = await self.bot.get_shared_api_tokens('mysql')
-        sql = await aiomysql.connect(**mysqlconfig)
-        cursor = await sql.cursor()
-        await cursor.execute("SELECT id FROM players WHERE Name = %s", (character, ))
-        rows = cursor.rowcount
-        data = await cursor.fetchone()
-        await cursor.close()
-        sql.close()
+        async with aiomysql.connect(**self.mysqlinfo) as sql:
+            async with sql.cursor() as cursor:
+                rows = await cursor.execute("SELECT id FROM players WHERE Name = %s", (character, ))
+                if rows == 0:
+                    return
 
-        if rows == 0:
-            return 0
-
-        return data[0]
+                data = await cursor.fetchone()
+                return data[0]
 
     async def return_master_id_from_discordid(self, id: int):
-        mysqlconfig = await self.bot.get_shared_api_tokens('mysql')
-        sql = await aiomysql.connect(**mysqlconfig)
-        cursor = await sql.cursor()
-        await cursor.execute("SELECT id FROM masters WHERE discordid = %s", (id, ))
-        rows = cursor.rowcount
-        data = await cursor.fetchone()
-        await cursor.close()
-        sql.close()
+        async with aiomysql.connect(**self.mysqlinfo) as sql:
+            async with sql.cursor() as cursor:
+                rows = await cursor.execute("SELECT id FROM masters WHERE discordid = %s", (id, ))
+                if rows == 0:
+                    return 0
 
-        if rows == 0:
-            return 0
-
-        return data[0]
+                data = await cursor.fetchone()
+                return data[0]
 
     @commands.Cog.listener()
     async def on_guild_remove(self, guild: discord.Guild):
@@ -168,27 +156,18 @@ class RCRPFactions(commands.Cog, name="Faction Commands"):
     @commands.check(admin_check)
     async def factions(self, ctx: commands.Context):
         """Lists all of the current factions on the server"""
-        mysqlconfig = await self.bot.get_shared_api_tokens('mysql')
-        sql = await aiomysql.connect(**mysqlconfig)
-        cursor = await sql.cursor()
+        async with aiomysql.connect(**self.mysqlinfo) as sql:
+            async with sql.cursor() as cursor:
+                rows = await cursor.execute("SELECT id, FactionName FROM factions ORDER BY id ASC")
+                if rows == 0:
+                    await ctx.send("There are apparently no factions currently.")
+                    return
 
-        await cursor.execute("SELECT id, FactionName FROM factions ORDER BY id ASC")
-        if cursor.rowcount == 0:
-            await ctx.send("There are apparently no factions currently.")
-            await cursor.close()
-            sql.close()
-            return
-
-        data = await cursor.fetchall()
-        await cursor.close()
-        sql.close()
-
-        factionstring = []
-        for faction in data:
-            factionstring.append(f'{faction[1]} (ID {faction[0]})')
-        factionstring = '\n'.join(factionstring)
-        embed = discord.Embed(title='RCRP Factions', description=factionstring, color=0xe74c3c, timestamp=ctx.message.created_at)
-        await ctx.send(embed=embed)
+                factionstring = ''
+                async for faction in cursor.fetchall():
+                    factionstring += f'{faction[1]} (ID {faction[0]})\n'
+                embed = discord.Embed(title='RCRP Factions', description=factionstring, color=0xe74c3c, timestamp=ctx.message.created_at)
+                await ctx.send(embed=embed)
 
     @faction.command()
     @commands.guild_only()
@@ -212,25 +191,17 @@ class RCRPFactions(commands.Cog, name="Faction Commands"):
             await ctx.send("This discord server is already linked to a faction.")
             return
 
-        guilds = await self.config.all_guilds()
-        for guild in guilds:
-            if guilds[guild]['factionid'] == factionid:
+        async for guild in self.config.all_guilds():
+            if guild['factionid'] == factionid:
                 await ctx.send("This faction is already linked to another discord server.")
                 return
 
-        mysqlconfig = await self.bot.get_shared_api_tokens('mysql')
-        sql = await aiomysql.connect(**mysqlconfig)
-        cursor = await sql.cursor()
-        await cursor.execute("SELECT NULL FROM factions WHERE id = %s", (factionid, ))
-
-        if cursor.rowcount == 0:
-            await cursor.close()
-            sql.close()
-            await ctx.send('Invalid faction ID.')
-            return
-
-        await cursor.close()
-        sql.close()
+        async with aiomysql.connect(**self.mysqlinfo) as sql:
+            async with sql.cursor() as cursor:
+                rows = await cursor.execute("SELECT NULL FROM factions WHERE id = %s", (factionid, ))
+                if rows == 0:
+                    await ctx.send('Invalid faction ID.')
+                    return
 
         await self.config.guild(ctx.guild).factionid.set(factionid)
         factionname = await self.return_faction_name(factionid)
@@ -259,30 +230,20 @@ class RCRPFactions(commands.Cog, name="Faction Commands"):
             await ctx.send('This command can only be used in verified, faction-specific Discord servers.')
             return
 
-        mysqlconfig = await self.bot.get_shared_api_tokens('mysql')
-        sql = await aiomysql.connect(**mysqlconfig)
-        cursor = await sql.cursor()
-        await cursor.execute("SELECT Name, factionranks.rankname, masters.Username FROM players LEFT JOIN factionranks ON players.Faction = factionranks.fid LEFT JOIN masters ON masters.id = players.MasterAccount WHERE Faction = %s AND factionranks.slot = FactionRank AND Online = 1 ORDER BY FactionRank DESC", (factionid, ))
+        async with aiomysql.connect(**self.mysqlinfo) as sql:
+            async with sql.cursor(aiomysql.DictCursor) as cursor:
+                rows = await cursor.execute("SELECT Name, fr.rankname, m.Username FROM players p LEFT JOIN factionranks fr ON p.Faction = fr.fid LEFT JOIN masters m ON m.id = p.MasterAccount WHERE Faction = %s AND fr.slot = FactionRank AND Online = 1 ORDER BY FactionRank DESC", (factionid, ))
+                if rows == 0:
+                    await ctx.send('There are currently no members online.')
+                    return
 
-        if cursor.rowcount == 0:
-            await cursor.close()
-            sql.close()
-            await ctx.send('There are currently no members online.')
-            return
+                memberstring = ''
+                async for member in cursor.fetchall():
+                    memberstring += f"{member['rankname']} {member['Name'].replace('_', '')} ({member['Username']})"
 
-        members = await cursor.fetchall()
-        memberstring = []
-        for member in members:
-            memberstring.append(f'{member[1]} {member[0]} ({member[2]})')
-        memberstring = '\n'.join(memberstring)
-        memberstring = memberstring.replace('_', ' ')
-
-        embed = discord.Embed(title=f'Online Members ({cursor.rowcount})', description=memberstring, color=0xe74c3c)
-        embed.timestamp = ctx.message.created_at
-        await ctx.send(embed=embed)
-
-        await cursor.close()
-        sql.close()
+                embed = discord.Embed(title=f'Online Members ({cursor.rowcount})', description=memberstring, color=0xe74c3c)
+                embed.timestamp = ctx.message.created_at
+                await ctx.send(embed=embed)
 
     @faction.command()
     @commands.guild_only()
@@ -290,18 +251,13 @@ class RCRPFactions(commands.Cog, name="Faction Commands"):
     @commands.check(rcrp_check)
     async def online(self, ctx: commands.Context):
         """Collects a list of factions and their online member counts"""
-        mysqlconfig = await self.bot.get_shared_api_tokens('mysql')
-        sql = await aiomysql.connect(**mysqlconfig)
-        cursor = await sql.cursor(aiomysql.DictCursor)
-        await cursor.execute("SELECT COUNT(players.id) AS members, COUNT(IF(Online = 1, 1, NULL)) AS onlinemembers, factions.FNameShort AS name FROM players JOIN factions ON players.Faction = factions.id WHERE Faction != 0 GROUP BY Faction ORDER BY Faction ASC")
-        factiondata = await cursor.fetchall()
-        await cursor.close()
-        sql.close()
-
-        embed = discord.Embed(title="Faction List", color=0xe74c3c, timestamp=ctx.message.created_at)
-        for factioninfo in factiondata:
-            embed.add_field(name=factioninfo['name'], value=f"{factioninfo['onlinemembers']}/{factioninfo['members']}", inline=True)
-        await ctx.send(embed=embed)
+        async with aiomysql.connect(**self.mysqlinfo) as sql:
+            async with sql.cursor(aiomysql.DictCursor) as cursor:
+                await cursor.execute("SELECT COUNT(players.id) AS members, COUNT(IF(Online = 1, 1, NULL)) AS onlinemembers, factions.FNameShort AS name FROM players JOIN factions ON players.Faction = factions.id WHERE Faction != 0 GROUP BY Faction ORDER BY Faction ASC")
+                embed = discord.Embed(title="Faction List", color=0xe74c3c, timestamp=ctx.message.created_at)
+                async for factioninfo in cursor.fetchall():
+                    embed.add_field(name=factioninfo['name'], value=f"{factioninfo['onlinemembers']}/{factioninfo['members']}", inline=True)
+                await ctx.send(embed=embed)
 
     @commands.command()
     @commands.guild_only()
@@ -337,10 +293,6 @@ class RCRPFactions(commands.Cog, name="Faction Commands"):
             # unlikely to happen since you need to have an admin role on the discord, but y'know
             return
 
-        mysqlconfig = await self.bot.get_shared_api_tokens('mysql')
-        sql = await aiomysql.connect(**mysqlconfig)
-        cursor = await sql.cursor()
-
         final_weapons = ""
         for gun in guns.split(' '):
             weapon = resolve_strawman_weapon(gun)
@@ -349,10 +301,9 @@ class RCRPFactions(commands.Cog, name="Faction Commands"):
                 continue
 
             final_weapons += f"{weapon['name']}, "
-            await cursor.execute('INSERT INTO refunds_gtac (refund_player_id, refund_admin_id, refund_type, refund_itemtype, refund_subtype, refund_infratype, refund_amount, refund_reason) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)',
-                                 (character_id, admin_master_id, 1, weapon['weaponid'], 8, 0, weapon['ammo'], f'Strawman weapon provided by {ctx.author.display_name}'))
+            async with aiomysql.connect(**self.mysqlinfo) as sql:
+                async with sql.cursor() as cursor:
+                    await cursor.execute('INSERT INTO refunds_gtac (refund_player_id, refund_admin_id, refund_type, refund_itemtype, refund_subtype, refund_infratype, refund_amount, refund_reason) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)',
+                                         (character_id, admin_master_id, 1, weapon['weaponid'], 8, 0, weapon['ammo'], f'Strawman weapon provided by {ctx.author.display_name}', ))
 
-        final_weapons = final_weapons.rstrip(', ')
-        await ctx.send(f'You have issued the following strawman weapons to {character_name}: {final_weapons}')
-        await cursor.close()
-        sql.close()
+        await ctx.send(f"You have issued the following strawman weapons to {character_name}: {final_weapons.rstrip(', ')}")

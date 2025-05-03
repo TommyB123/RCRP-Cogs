@@ -134,38 +134,30 @@ class RCRPStaffCommands(commands.Cog):
         self.bot.remove_command('ban')
         self.bot.remove_command('unban')
 
+    async def cog_load(self):
+        self.mysqlinfo = await self.bot.get_shared_api_tokens('mysql')
+
     async def send_relay_channel_message(self, ctx: commands.Context, message: str):
         relaychannel = ctx.guild.get_channel(self.relay_channel_id)
         await relaychannel.send(message)
 
     async def fetch_master_id_from_discord_id(self, discordid: int):
-        mysqlconfig = await self.bot.get_shared_api_tokens('mysql')
-        sql = await aiomysql.connect(**mysqlconfig)
-        cursor = await sql.cursor()
-        await cursor.execute("SELECT id FROM masters WHERE discordid = %s", (discordid, ))
-        data = await cursor.fetchone()
-        await cursor.close()
-        sql.close()
+        async with aiomysql.connect(**self.mysqlinfo) as sql:
+            async with sql.cursor() as cursor:
+                rows = await cursor.execute("SELECT id FROM masters WHERE discordid = %s", (discordid, ))
+                if rows == 0:
+                    return 0
 
-        if data is None:
-            return 0
-        else:
-            return data[0]
+                return await cursor.fetchone()[0]
 
     async def fetch_account_id(self, mastername: str):
-        mysqlconfig = await self.bot.get_shared_api_tokens('mysql')
-        sql = await aiomysql.connect(**mysqlconfig)
-        cursor = await sql.cursor()
-        await cursor.execute("SELECT id FROM masters WHERE Username = %s", (mastername, ))
-        rows = cursor.rowcount
-        data = await cursor.fetchone()
-        await cursor.close()
-        sql.close()
+        async with aiomysql.connect(**self.mysqlinfo) as sql:
+            async with sql.cursor() as cursor:
+                rows = await cursor.execute("SELECT id FROM masters WHERE Username = %s", (mastername, ))
+                if rows == 0:
+                    return 0
 
-        if rows == 0:
-            return 0
-
-        return data[0]
+                return await cursor.fetchone()[0]
 
     @commands.group()
     @commands.guild_only()
@@ -181,27 +173,20 @@ class RCRPStaffCommands(commands.Cog):
     @commands.check(admin_check)
     async def discord_ma_search(self, ctx: commands.Context, discord_user: discord.User):
         """Fetches Master Account info for a verified Discord member"""
-        mysqlconfig = await self.bot.get_shared_api_tokens('mysql')
-        sql = await aiomysql.connect(**mysqlconfig)
-        cursor = await sql.cursor()
-        await cursor.execute("SELECT id, Username, UNIX_TIMESTAMP(RegTimeStamp) AS RegStamp, LastLog FROM masters WHERE discordid = %s", (discord_user.id, ))
-        data = await cursor.fetchone()
+        async with aiomysql.connect(**self.mysqlinfo) as sql:
+            async with sql.cursor() as cursor:
+                rows = await cursor.execute("SELECT id, Username, UNIX_TIMESTAMP(RegTimeStamp) AS RegStamp, LastLog FROM masters WHERE discordid = %s", (discord_user.id, ))
+                if rows == 0:
+                    await ctx.send(f"{discord_user} does not have a Master Account linked to their Discord account.")
+                    return
 
-        if cursor.rowcount == 0:
-            await ctx.send(f"{discord_user} does not have a Master Account linked to their Discord account.")
-            await cursor.close()
-            sql.close()
-            return
-
-        await cursor.close()
-        sql.close()
-
-        embed = discord.Embed(title=f"{data[1]} - {discord_user}", url=f"https://redcountyrp.com/admin/masters/{data[0]}", color=0xe74c3c)
-        embed.add_field(name="Account ID", value=data[0], inline=False)
-        embed.add_field(name="Username", value=data[1], inline=False)
-        embed.add_field(name="Registration Date", value=datetime.utcfromtimestamp(data[2]).strftime('%Y-%m-%d %H:%M:%S'), inline=False)
-        embed.add_field(name="Last Login Date", value=datetime.utcfromtimestamp(data[3]).strftime('%Y-%m-%d %H:%M:%S'), inline=False)
-        await ctx.send(embed=embed)
+                data = await cursor.fetchone()
+                embed = discord.Embed(title=f"{data[1]} - {discord_user}", url=f"https://redcountyrp.com/admin/masters/{data[0]}", color=0xe74c3c)
+                embed.add_field(name="Account ID", value=data[0], inline=False)
+                embed.add_field(name="Username", value=data[1], inline=False)
+                embed.add_field(name="Registration Date", value=datetime.utcfromtimestamp(data[2]).strftime('%Y-%m-%d %H:%M:%S'), inline=False)
+                embed.add_field(name="Last Login Date", value=datetime.utcfromtimestamp(data[3]).strftime('%Y-%m-%d %H:%M:%S'), inline=False)
+                await ctx.send(embed=embed)
 
     @lookup.command()
     @commands.guild_only()
@@ -209,33 +194,26 @@ class RCRPStaffCommands(commands.Cog):
     @commands.check(admin_check)
     async def ma(self, ctx: commands.Context, master_name: str):
         """Fetches a Discord account based on a Master Account name search"""
-        mysqlconfig = await self.bot.get_shared_api_tokens('mysql')
-        sql = await aiomysql.connect(**mysqlconfig)
-        cursor = await sql.cursor()
-        await cursor.execute("SELECT id, discordid, UNIX_TIMESTAMP(RegTimeStamp) AS RegStamp, LastLog FROM masters WHERE Username = %s", (master_name, ))
+        async with aiomysql.connect(**self.mysqlinfo) as sql:
+            async with sql.cursor() as cursor:
+                rows = await cursor.execute("SELECT id, discordid, UNIX_TIMESTAMP(RegTimeStamp) AS RegStamp, LastLog FROM masters WHERE Username = %s", (master_name, ))
+                if rows == 0:
+                    await ctx.send(f"{master_name} is not a valid account name.")
+                    return
 
-        if cursor.rowcount == 0:
-            await ctx.send(f"{master_name} is not a valid account name.")
-            await cursor.close()
-            sql.close()
-            return
+                data = await cursor.fetchone()
+                if data[1] is None or data[1] == 0:
+                    await ctx.send(f"{master_name} does not have a Discord account linked to their MA.")
+                    return
 
-        data = await cursor.fetchone()
-        await cursor.close()
-        sql.close()
-
-        if data[1] is None or data[1] == 0:
-            await ctx.send(f"{master_name} does not have a Discord account linked to their MA.")
-            return
-
-        matcheduser = await self.bot.fetch_user(data[1])
-        embed = discord.Embed(title=f"{master_name}", url=f"https://redcountyrp.com/admin/masters/{data[0]}", color=0xe74c3c)
-        embed.add_field(name="Discord User", value=matcheduser.mention)
-        embed.add_field(name="Account ID", value=data[0], inline=False)
-        embed.add_field(name="Username", value=master_name, inline=False)
-        embed.add_field(name="Registration Date", value=datetime.utcfromtimestamp(data[2]).strftime('%Y-%m-%d %H:%M:%S'), inline=False)
-        embed.add_field(name="Last Login Date", value=datetime.utcfromtimestamp(data[3]).strftime('%Y-%m-%d %H:%M:%S'), inline=False)
-        await ctx.send(embed=embed)
+                matcheduser = await self.bot.fetch_user(data[1])
+                embed = discord.Embed(title=f"{master_name}", url=f"https://redcountyrp.com/admin/masters/{data[0]}", color=0xe74c3c)
+                embed.add_field(name="Discord User", value=matcheduser.mention)
+                embed.add_field(name="Account ID", value=data[0], inline=False)
+                embed.add_field(name="Username", value=master_name, inline=False)
+                embed.add_field(name="Registration Date", value=datetime.utcfromtimestamp(data[2]).strftime('%Y-%m-%d %H:%M:%S'), inline=False)
+                embed.add_field(name="Last Login Date", value=datetime.utcfromtimestamp(data[3]).strftime('%Y-%m-%d %H:%M:%S'), inline=False)
+                await ctx.send(embed=embed)
 
     @lookup.command()
     @commands.guild_only()
@@ -243,41 +221,31 @@ class RCRPStaffCommands(commands.Cog):
     @commands.check(admin_check)
     async def house(self, ctx: commands.Context, *, address: str):
         """Queries the database for information of a house based on user-specified input"""
-        mysqlconfig = await self.bot.get_shared_api_tokens('mysql')
-        sql = await aiomysql.connect(**mysqlconfig)
-        cursor = await sql.cursor(aiomysql.DictCursor)
-        await cursor.execute("SELECT houses.id, OwnerSQLID, Description, players.Name AS OwnerName, InsideID, ExteriorFurnLimit, Price FROM houses LEFT JOIN players ON players.id = houses.OwnerSQLID WHERE Description LIKE %s", (('%' + address + '%'), ))
+        async with aiomysql.connect(**self.mysqlinfo) as sql:
+            async with sql.cursor(aiomysql.DictCursor) as cursor:
+                rows = await cursor.execute("SELECT houses.id, OwnerSQLID, Description, players.Name AS OwnerName, InsideID, ExteriorFurnLimit, Price FROM houses LEFT JOIN players ON players.id = houses.OwnerSQLID WHERE Description LIKE %s", (('%' + address + '%'), ))
+                if rows == 0:
+                    await ctx.send("Invalid house address.")
+                    return
+                elif rows > 1:
+                    await ctx.send('More than one house was found. Please use a more specific address.')
+                    return
 
-        if cursor.rowcount == 0:
-            await cursor.close()
-            sql.close()
-            await ctx.send("Invalid house address.")
-            return
+                house = await cursor.fetchone()
+                if house['OwnerName'] is None:
+                    if house['OwnerSQLID'] == -5:
+                        house['OwnerName'] = "Silver Trading"
+                    else:
+                        house['OwnerName'] = "Unowned"
 
-        if cursor.rowcount > 1:
-            await cursor.close()
-            sql.close()
-            await ctx.send('More than one house was found. Please use a more specific address.')
-            return
-
-        house = await cursor.fetchone()
-        await cursor.close()
-        sql.close()
-
-        if house['OwnerName'] is None:
-            if house['OwnerSQLID'] == -5:
-                house['OwnerName'] = "Silver Trading"
-            else:
-                house['OwnerName'] = "Unowned"
-
-        embed = discord.Embed(title=house['Description'], color=0xe74c3c, url=f"https://redcountyrp.com/admin/assets/houses/{house['id']}")
-        embed.set_thumbnail(url=f"https://redcountyrp.com/images/houses/{house['id']}.png")
-        embed.add_field(name="ID", value=house['id'], inline=False)
-        embed.add_field(name="Owner", value=house['OwnerName'], inline=False)
-        embed.add_field(name="Price", value='${:,}'.format(house['Price']), inline=False)
-        embed.add_field(name="Interior", value=house['InsideID'], inline=False)
-        embed.add_field(name="Ext Furn Limit", value=house['ExteriorFurnLimit'], inline=False)
-        await ctx.send(embed=embed)
+                embed = discord.Embed(title=house['Description'], color=0xe74c3c, url=f"https://redcountyrp.com/admin/assets/houses/{house['id']}")
+                embed.set_thumbnail(url=f"https://redcountyrp.com/images/houses/{house['id']}.png")
+                embed.add_field(name="ID", value=house['id'], inline=False)
+                embed.add_field(name="Owner", value=house['OwnerName'], inline=False)
+                embed.add_field(name="Price", value='${:,}'.format(house['Price']), inline=False)
+                embed.add_field(name="Interior", value=house['InsideID'], inline=False)
+                embed.add_field(name="Ext Furn Limit", value=house['ExteriorFurnLimit'], inline=False)
+                await ctx.send(embed=embed)
 
     @lookup.command()
     @commands.guild_only()
@@ -285,42 +253,32 @@ class RCRPStaffCommands(commands.Cog):
     @commands.check(admin_check)
     async def business(self, ctx: commands.Context, *, description: str):
         """Queries the database for information of a business based on user-specified input"""
-        mysqlconfig = await self.bot.get_shared_api_tokens('mysql')
-        sql = await aiomysql.connect(**mysqlconfig)
-        cursor = await sql.cursor(aiomysql.DictCursor)
-        await cursor.execute("SELECT bizz.id, OwnerSQLID, Description, players.Name AS OwnerName, Price, BizzEarnings, IsSpecial, Loaned FROM bizz LEFT JOIN players ON players.id = bizz.OwnerSQLID WHERE Description LIKE %s", (('%' + description + '%'), ))
+        async with aiomysql.connect(**self.mysqlinfo) as sql:
+            async with sql.cursor(aiomysql.DictCursor) as cursor:
+                rows = await cursor.execute("SELECT bizz.id, OwnerSQLID, Description, players.Name AS OwnerName, Price, BizzEarnings, IsSpecial, Loaned FROM bizz LEFT JOIN players ON players.id = bizz.OwnerSQLID WHERE Description LIKE %s", (('%' + description + '%'), ))
+                if rows == 0:
+                    await ctx.send("Invalid business.")
+                    return
+                elif rows > 1:
+                    await ctx.send('More than one business was found. Please use a more specific name.')
+                    return
 
-        if cursor.rowcount == 0:
-            await cursor.close()
-            sql.close()
-            await ctx.send("Invalid business.")
-            return
+                bizz = await cursor.fetchone()
+                if bizz['OwnerName'] is None:
+                    if bizz['OwnerSQLID'] == -5:
+                        bizz['OwnerName'] = "Silver Trading"
+                    else:
+                        bizz['OwnerName'] = "Unowned"
 
-        if cursor.rowcount > 1:
-            await cursor.close()
-            sql.close()
-            await ctx.send('More than one business was found. Please use a more specific name.')
-            return
-
-        bizz = await cursor.fetchone()
-        await cursor.close()
-        sql.close()
-
-        if bizz['OwnerName'] is None:
-            if bizz['OwnerSQLID'] == -5:
-                bizz['OwnerName'] = "Silver Trading"
-            else:
-                bizz['OwnerName'] = "Unowned"
-
-        embed = discord.Embed(title=bizz['Description'], color=0xe74c3c, url=f"https://redcountyrp.com/admin/assets/businesses/{bizz['id']}")
-        embed.set_thumbnail(url=f"https://redcountyrp.com/images/businesses/{bizz['id']}.png")
-        embed.add_field(name="ID", value=bizz['id'], inline=False)
-        embed.add_field(name="Owner", value=bizz['OwnerName'], inline=False)
-        embed.add_field(name="Price", value='${:,}'.format(bizz['Price']), inline=False)
-        embed.add_field(name="Earnings", value='${:,}'.format(bizz['BizzEarnings']), inline=False)
-        embed.add_field(name="Special Int", value='Yes' if bizz['IsSpecial'] == 1 else 'No', inline=False)
-        embed.add_field(name="Loaned", value='Yes' if bizz['Loaned'] == 1 else 'No', inline=False)
-        await ctx.send(embed=embed)
+                embed = discord.Embed(title=bizz['Description'], color=0xe74c3c, url=f"https://redcountyrp.com/admin/assets/businesses/{bizz['id']}")
+                embed.set_thumbnail(url=f"https://redcountyrp.com/images/businesses/{bizz['id']}.png")
+                embed.add_field(name="ID", value=bizz['id'], inline=False)
+                embed.add_field(name="Owner", value=bizz['OwnerName'], inline=False)
+                embed.add_field(name="Price", value='${:,}'.format(bizz['Price']), inline=False)
+                embed.add_field(name="Earnings", value='${:,}'.format(bizz['BizzEarnings']), inline=False)
+                embed.add_field(name="Special Int", value='Yes' if bizz['IsSpecial'] == 1 else 'No', inline=False)
+                embed.add_field(name="Loaned", value='Yes' if bizz['Loaned'] == 1 else 'No', inline=False)
+                await ctx.send(embed=embed)
 
     @lookup.command()
     @commands.guild_only()
@@ -333,28 +291,20 @@ class RCRPStaffCommands(commands.Cog):
             await ctx.send('Invalid account name.')
             return
 
-        mysqlconfig = await self.bot.get_shared_api_tokens('mysql')
-        sql = await aiomysql.connect(**mysqlconfig)
-        cursor = await sql.cursor(aiomysql.DictCursor)
-        await cursor.execute("SELECT WeaponID AS weapon, COUNT(*) AS count FROM weapons WHERE OwnerSQLID IN (SELECT id FROM players WHERE MasterAccount = %s) AND Deleted = 0 GROUP BY WeaponID", (master_id, ))
+        async with aiomysql.connect(**self.mysqlinfo) as sql:
+            async with sql.cursor(aiomysql.DictCursor) as cursor:
+                rows = await cursor.execute("SELECT WeaponID AS weapon, COUNT(*) AS count FROM weapons WHERE OwnerSQLID IN (SELECT id FROM players WHERE MasterAccount = %s) AND Deleted = 0 GROUP BY WeaponID", (master_id, ))
+                if rows == 0:
+                    await ctx.send(f'{master_name} does not have any weapons.')
+                    return
 
-        if cursor.rowcount == 0:
-            await ctx.send(f'{master_name} does not have any weapons.')
-            await cursor.close()
-            sql.close()
-            return
-
-        data = await cursor.fetchall()
-        await cursor.close()
-        sql.close()
-
-        total = 0
-        embed = discord.Embed(title=f'Weapons of {master_name}', color=0xe74c3c, timestamp=ctx.message.created_at)
-        for weapon in data:
-            embed.add_field(name=weaponnames[weapon['weapon']], value='{:,}'.format(weapon['count']))
-            total += weapon['count']
-        embed.add_field(name='Total Weapons', value='{:,}'.format(total))
-        await ctx.send(embed=embed)
+                total = 0
+                embed = discord.Embed(title=f'Weapons of {master_name}', color=0xe74c3c, timestamp=ctx.message.created_at)
+                async for weapon in cursor.fetchall():
+                    embed.add_field(name=weaponnames[weapon['weapon']], value='{:,}'.format(weapon['count']))
+                    total += weapon['count']
+                embed.add_field(name='Total Weapons', value='{:,}'.format(total))
+                await ctx.send(embed=embed)
 
     @commands.command()
     @commands.guild_only()
@@ -471,12 +421,9 @@ class RCRPStaffCommands(commands.Cog):
             await ctx.send("Invalid admin level.")
             return
 
-        mysqlconfig = await self.bot.get_shared_api_tokens('mysql')
-        sql = await aiomysql.connect(**mysqlconfig)
-        cursor = await sql.cursor()
-        await cursor.execute("UPDATE masters SET AdminLevel = %s WHERE discordid = %s", (level, member.id))
-        await cursor.close()
-        sql.close()
+        async with aiomysql.connect(**self.mysqlinfo) as sql:
+            async with sql.cursor() as cursor:
+                await cursor.execute("UPDATE masters SET AdminLevel = %s WHERE discordid = %s", (level, member.id))
 
         admin = ctx.guild.get_role(adminrole)
         if level == 0:
@@ -496,24 +443,20 @@ class RCRPStaffCommands(commands.Cog):
             await ctx.send("This command can only be used on verified members. (How would we know what account to give tester to dummy??)")
             return
 
-        mysqlconfig = await self.bot.get_shared_api_tokens('mysql')
-        sql = await aiomysql.connect(**mysqlconfig)
-        cursor = await sql.cursor()
-        await cursor.execute("SELECT Tester FROM masters WHERE discordid = %s", (member.id, ))
-        data = await cursor.fetchone()
-        tester = ctx.guild.get_role(testerrole)
+        async with aiomysql.connect(**self.mysqlinfo) as sql:
+            async with sql.cursor() as cursor:
+                await cursor.execute("SELECT Tester FROM masters WHERE discordid = %s", (member.id, ))
+                data = await cursor.fetchone()
+                tester = ctx.guild.get_role(testerrole)
 
-        if data[0] == 0:  # they're not a tester, let's make them one
-            await cursor.execute("UPDATE masters SET Tester = 1 WHERE discordid = %s", (member.id, ))
-            await member.add_roles(tester)
-            await ctx.send(f'{member.mention} is now a tester!')
-        else:
-            await cursor.execute("UPDATE masters SET Tester = 0 WHERE discordid = %s", (member.id, ))
-            await member.remove_roles(tester)
-            await ctx.send(f'{member.mention} is no longer a tester!')
-
-        await cursor.close()
-        sql.close()
+                if data[0] == 0:  # they're not a tester, let's make them one
+                    await cursor.execute("UPDATE masters SET Tester = 1 WHERE discordid = %s", (member.id, ))
+                    await member.add_roles(tester)
+                    await ctx.send(f'{member.mention} is now a tester!')
+                else:
+                    await cursor.execute("UPDATE masters SET Tester = 0 WHERE discordid = %s", (member.id, ))
+                    await member.remove_roles(tester)
+                    await ctx.send(f'{member.mention} is no longer a tester!')
 
     @assign.command()
     @commands.guild_only()
@@ -525,24 +468,20 @@ class RCRPStaffCommands(commands.Cog):
             await ctx.send("This command can only be used on verified members. (How would we know what account to give helper to dummy??)")
             return
 
-        mysqlconfig = await self.bot.get_shared_api_tokens('mysql')
-        sql = await aiomysql.connect(**mysqlconfig)
-        cursor = await sql.cursor()
-        await cursor.execute("SELECT Helper FROM masters WHERE discordid = %s", (member.id, ))
-        data = await cursor.fetchone()
-        helper = ctx.guild.get_role(helperrole)
+        async with aiomysql.connect(**self.mysqlinfo) as sql:
+            async with sql.cursor() as cursor:
+                await cursor.execute("SELECT Helper FROM masters WHERE discordid = %s", (member.id, ))
+                data = await cursor.fetchone()
+                helper = ctx.guild.get_role(helperrole)
 
-        if data[0] == 0:  # they're not a tester, let's make them one
-            await cursor.execute("UPDATE masters SET Helper = 1 WHERE discordid = %s", (member.id, ))
-            await member.add_roles(helper)
-            await ctx.send(f'{member.mention} is now a helper!')
-        else:
-            await cursor.execute("UPDATE masters SET Helper = 0 WHERE discordid = %s", (member.id, ))
-            await member.remove_roles(helper)
-            await ctx.send(f'{member.mention} is no longer a helper!')
-
-        await cursor.close()
-        sql.close()
+                if data[0] == 0:  # they're not a tester, let's make them one
+                    await cursor.execute("UPDATE masters SET Helper = 1 WHERE discordid = %s", (member.id, ))
+                    await member.add_roles(helper)
+                    await ctx.send(f'{member.mention} is now a helper!')
+                else:
+                    await cursor.execute("UPDATE masters SET Helper = 0 WHERE discordid = %s", (member.id, ))
+                    await member.remove_roles(helper)
+                    await ctx.send(f'{member.mention} is no longer a helper!')
 
     @assign.command()
     @commands.guild_only()
@@ -564,20 +503,15 @@ class RCRPStaffCommands(commands.Cog):
     @commands.check(admin_check)
     async def peaks(self, ctx: commands.Context):
         """Fetches player count peaks for the last 14 days"""
-        mysqlconfig = await self.bot.get_shared_api_tokens('mysql')
-        sql = await aiomysql.connect(**mysqlconfig)
-        cursor = await sql.cursor()
-        await cursor.execute("SELECT * FROM ucpplayerscron ORDER BY Date DESC LIMIT 14")
-        peakdata = await cursor.fetchall()
-        await cursor.close()
-        sql.close()
+        async with aiomysql.connect(**self.mysqlinfo) as sql:
+            async with sql.cursor() as cursor:
+                await cursor.execute("SELECT * FROM ucpplayerscron ORDER BY Date DESC LIMIT 14")
 
-        message = []
-        for peak in peakdata:
-            message.append(f'{peak[0]} - {peak[1]} players\n')
+                message = ''
+                async for peak in cursor.fetchall():
+                    message += f'{peak[0]} - {peak[1]} players\n'
 
-        message = ''.join(message)
-        await ctx.send(message)
+                await ctx.send(message)
 
     @commands.command()
     @commands.guild_only()

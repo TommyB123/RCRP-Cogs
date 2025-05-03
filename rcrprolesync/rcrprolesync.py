@@ -1,6 +1,5 @@
 import discord
 import aiomysql
-from aiomysql import Cursor
 from discord.ext import tasks
 from redbot.core import commands
 from redbot.core.bot import Red
@@ -38,6 +37,9 @@ class RCRPRoleSync(commands.Cog, name="RCRP Role Sync"):
         self.bot = bot
         self.sync_member_roles.start()
 
+    async def cog_load(self):
+        self.mysqlinfo = await self.bot.get_shared_api_tokens('mysql')
+
     def cog_unload(self):
         self.sync_member_roles.cancel()
 
@@ -50,104 +52,86 @@ class RCRPRoleSync(commands.Cog, name="RCRP Role Sync"):
         return member_is_verified(member) is True
 
     async def account_is_banned(self, accountid):
-        mysqlconfig = await self.bot.get_shared_api_tokens('mysql')
-        sql = await aiomysql.connect(**mysqlconfig)
-        cursor: Cursor = await sql.cursor()
-        await cursor.execute("SELECT NULL FROM bans WHERE MasterAccount = %s", (accountid, ))
-        data = await cursor.fetchone()
-        await cursor.close()
-        sql.close()
+        async with aiomysql.connect(**self.mysqlinfo) as sql:
+            async with sql.cursor() as cursor:
+                await cursor.execute("SELECT NULL FROM bans WHERE MasterAccount = %s", (accountid, ))
+                data = await cursor.fetchone()
 
-        if data is None:
-            return False
-        else:
-            return True
+                return data is not None
 
     @commands.Cog.listener()
     async def on_member_join(self, member: discord.Member):
         if member.guild.id == rcrpguildid:
             rcrpguild: discord.Guild = self.bot.get_guild(rcrpguildid)
-            mysqlconfig = await self.bot.get_shared_api_tokens('mysql')
-            sql = await aiomysql.connect(**mysqlconfig)
-            cursor: Cursor = await sql.cursor()
+            async with aiomysql.connect(**self.mysqlinfo) as sql:
+                async with sql.cursor() as cursor:
+                    await cursor.execute("SELECT discordrole FROM discordroles WHERE discorduser = %s", (member.id, ))
+                    results = await cursor.fetchall()
+                    if results is not None:
+                        roles = []
+                        for roleid in results:
+                            role = rcrpguild.get_role(roleid[0])
+                            if role is None or roleid[0] == rcrpguildid:
+                                continue
+                            else:
+                                roles.append(role)
 
-            count = await cursor.execute("SELECT discordrole FROM discordroles WHERE discorduser = %s", (member.id, ))
-            if count != 0:
-                results = await cursor.fetchall()
-
-                roles = []
-                for roleid in results:
-                    role = rcrpguild.get_role(roleid[0])
-                    if role is None or roleid[0] == rcrpguildid:
-                        continue
-                    else:
-                        roles.append(role)
-
-                await member.add_roles(*roles)
-            await cursor.close()
-            sql.close()
+                        await member.add_roles(*roles)
 
     @commands.Cog.listener()
     async def on_member_update(self, before, after):
         if member_is_verified(after) is False or before.roles == after.roles or after.guild.id != rcrpguildid:
             return
 
-        mysqlconfig = await self.bot.get_shared_api_tokens('mysql')
-        sql = await aiomysql.connect(**mysqlconfig)
-        cursor = await sql.cursor()
+        async with aiomysql.connect(**self.mysqlinfo) as sql:
+            async with sql.cursor() as cursor:
+                # delete previous roles
+                await cursor.execute("DELETE FROM discordroles WHERE discorduser = %s", (before.id, ))
 
-        # delete previous roles
-        await cursor.execute("DELETE FROM discordroles WHERE discorduser = %s", (before.id, ))
-
-        # insert roles
-        role_ids = [role.id for role in after.roles]
-        if rcrpguildid in role_ids:
-            role_ids.remove(rcrpguildid)
-        for role in role_ids:
-            await cursor.execute("INSERT INTO discordroles (discorduser, discordrole) VALUES (%s, %s)", (before.id, role, ))
-
-        await cursor.close()
-        sql.close()
+                # insert roles
+                role_ids = [role.id for role in after.roles]
+                if rcrpguildid in role_ids:
+                    role_ids.remove(rcrpguildid)
+                for role in role_ids:
+                    await cursor.execute("INSERT INTO discordroles (discorduser, discordrole) VALUES (%s, %s)", (before.id, role, ))
 
     async def assign_roles(self, field: str, role_id: int):
-        mysqlconfig = await self.bot.get_shared_api_tokens('mysql')
-        sql = await aiomysql.connect(**mysqlconfig)
-        cursor: Cursor = await sql.cursor()
+        async with aiomysql.connect(**self.mysqlinfo) as sql:
+            async with sql.cursor() as cursor:
+                if role_id == bannedrole:
+                    await cursor.execute('SELECT masters.discordid FROM bans JOIN masters ON bans.MasterAccount = masters.id WHERE discordid != 0')
+                elif role_id == premiumrole:
+                    await cursor.execute("SELECT m.discordid FROM asettings a JOIN masters m ON m.id = a.sqlid  WHERE setting = 'ASET_PREMIUM' and m.discordid != 0")
+                elif role_id == farole:
+                    await cursor.execute("SELECT m.discordid FROM asettings a JOIN masters m on m.id = a.sqlid WHERE setting = 'ASET_FACTIONADMIN' and m.discordid != 0")
+                else:
+                    await cursor.execute(f"SELECT discordid FROM masters WHERE {field} != 0 AND discordid != 0")
 
-        if role_id == bannedrole:
-            await cursor.execute('SELECT masters.discordid FROM bans JOIN masters ON bans.MasterAccount = masters.id WHERE discordid != 0')
-        elif role_id == premiumrole:
-            await cursor.execute("SELECT m.discordid FROM asettings a JOIN masters m ON m.id = a.sqlid  WHERE setting = 'ASET_PREMIUM' and m.discordid != 0")
-        elif role_id == farole:
-            await cursor.execute("SELECT m.discordid FROM asettings a JOIN masters m on m.id = a.sqlid WHERE setting = 'ASET_FACTIONADMIN' and m.discordid != 0")
-        else:
-            await cursor.execute(f"SELECT discordid FROM masters WHERE {field} != 0 AND discordid != 0")
+                results = await cursor.fetchall()
+                await cursor.close()
+                sql.close()
 
-        results = await cursor.fetchall()
-        await cursor.close()
-        sql.close()
+                rcrp_ids = []
+                for member_id in results:
+                    rcrp_ids.append(member_id[0])
 
-        rcrp_ids = []
-        for member_id in results:
-            rcrp_ids.append(member_id[0])
+                rcrpguild = self.bot.get_guild(rcrpguildid)
+                role = rcrpguild.get_role(role_id)
+                discord_ids = [member.id for member in role.members]
 
-        rcrpguild = self.bot.get_guild(rcrpguildid)
-        role = rcrpguild.get_role(role_id)
-        discord_ids = [member.id for member in role.members]
+                # remove roles from those who shouldn't have it
+                for member_id in discord_ids:
+                    if member_id not in rcrp_ids:
+                        member = rcrpguild.get_member(member_id)
+                        if member is not None and member_is_management(member) is False:
+                            await member.remove_roles(role)
 
-        # remove roles from those who shouldn't have it
-        for member_id in discord_ids:
-            if member_id not in rcrp_ids:
-                member = rcrpguild.get_member(member_id)
-                if member is not None and member_is_management(member) is False:
-                    await member.remove_roles(role)
-
-        # assign roles to those who should have it
-        for member_id in rcrp_ids:
-            if member_id not in discord_ids:
-                member = rcrpguild.get_member(member_id)
-                if member is not None and member_is_management(member) is False:
-                    await member.add_roles(role)
+                # assign roles to those who should have it
+                for member_id in rcrp_ids:
+                    if member_id not in discord_ids:
+                        member = rcrpguild.get_member(member_id)
+                        if member is not None and member_is_management(member) is False:
+                            await member.add_roles(role)
 
     @tasks.loop(seconds=60.0)
     async def sync_member_roles(self):
