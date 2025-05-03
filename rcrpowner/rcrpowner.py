@@ -179,7 +179,7 @@ class OwnerCog(commands.Cog):
                 embed.add_field(name='Total', value='{:,}'.format(totalweps))
                 await ctx.send(embed=embed)
 
-    @commands.group()
+    @commands.command()
     @commands.is_owner()
     async def mysql(self, ctx: commands.Context, *, query: str):
         """Sends a MySQL query straight to the RCRP database"""
