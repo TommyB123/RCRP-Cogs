@@ -113,10 +113,22 @@ class RCRPVerification(commands.Cog, name="RCRP Verification"):
     async def cog_load(self):
         self.mysqlinfo = await self.bot.get_shared_api_tokens('mysql')
 
-    async def account_linked_to_discord(self, discordid: int):
+    async def discord_linked_to_account(self, discordid: int):
         async with aiomysql.connect(**self.mysqlinfo) as sql:
             async with sql.cursor() as cursor:
                 rows = await cursor.execute("SELECT NULL FROM masters WHERE discordid = %s", (discordid, ))
+                return rows != 0
+
+    async def account_name_valid(self, accountname: str):
+        async with aiomysql.connect(**self.mysqlinfo) as sql:
+            async with sql.cursor() as cursor:
+                rows = await cursor.execute('SELECT NULL FROM masters WHERE Username = %s', (accountname, ))
+                return rows != 0
+
+    async def account_verified(self, accountname: str):
+        async with aiomysql.connect(**self.mysqlinfo) as sql:
+            async with sql.cursor() as cursor:
+                rows = await cursor.execute('SELECT NULL FROM masters WHERE Username = %s AND discordid != 0', (accountname, ))
                 return rows != 0
 
     @commands.Cog.listener()
@@ -131,7 +143,7 @@ class RCRPVerification(commands.Cog, name="RCRP Verification"):
     async def verify(self, interaction: discord.Interaction[Red]):
         """Verify an RCRP account"""
 
-        if await self.account_linked_to_discord(interaction.user.id):
+        if await self.discord_linked_to_account(interaction.user.id):
             await interaction.response.send_message('This Discord account is already linked to an RCRP account.', ephemeral=True)
             return
 
