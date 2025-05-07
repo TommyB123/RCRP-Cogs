@@ -1,0 +1,7 @@
+{
+    "name": "RCRP Relay",
+    "author": ["17f"],
+    "description": "Cog that handles discord events from the Red County Roleplay game server",
+    "short": "RCRP game server relay",
+    "end_user_data_statement": "This cog does not collect data pertaining to any Discord user."
+}

@@ -4,6 +4,7 @@ import json
 from redbot.core import commands, app_commands
 from redbot.core.utils import menus
 from redbot.core.bot import Red
+from ..rcrprelay.rcrprelay import send_rcrp_relay_message
 
 # rcrp guild ID
 rcrpguildid = 93142223473905664
@@ -29,14 +30,9 @@ async def rcrp_check(interaction: discord.Interaction):
 class RCRPCommands(commands.Cog):
     def __init__(self, bot: Red):
         self.bot = bot
-        self.relay_channel_id = 776943930603470868
 
     async def cog_load(self):
         self.mysqlinfo = await self.bot.get_shared_api_tokens('mysql')
-
-    async def send_relay_channel_message(self, guild: discord.Guild, message: str):
-        relaychannel = guild.get_channel(self.relay_channel_id)
-        await relaychannel.send(message)
 
     @commands.command()
     @commands.guild_only()
@@ -146,14 +142,13 @@ class RCRPCommands(commands.Cog):
     @app_commands.guild_only()
     async def vehicleinfo(self, interaction: discord.Interaction, vehicle: str):
         rcrp_message = {
-            "origin": "rudy",
             "callback": "FetchVehicleInfoForDiscord",
             "vehicle": vehicle,
             "channel": str(interaction.channel.id)
         }
 
         message = json.dumps(rcrp_message)
-        await self.send_relay_channel_message(interaction.guild, message)
+        await send_rcrp_relay_message(message)
 
     download = app_commands.Group(name='download', description='Download various SA-MP-related files')
 

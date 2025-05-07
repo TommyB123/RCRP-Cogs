@@ -1,10 +1,9 @@
 import discord
-import json
 import inspect
 from redbot.core import commands
 from redbot.core.bot import Red
+from ..rcrprelay.rcrprelay import send_rcrp_relay_message
 
-relay_channel_id = 776943930603470868
 sasp_guild_id = 381002103667294208
 rcrp_guild_id = 93142223473905664
 sasp_unit_channel_category_id = 1186592362177253456
@@ -23,55 +22,37 @@ class RCRPDispatch(commands.Cog, name='SASP Dispatch'):
         self.unit_channels: dict[str, int] = {}
 
     @commands.Cog.listener()
-    async def on_message(self, message: discord.Message):
-        if message.guild is not None and message.guild.id == rcrp_guild_id and message.channel.id == relay_channel_id:
-            data = json.loads(message.content)
-
-            origin = data.get('origin')
-            if origin is None or origin == 'rudy':
-                # don't parse messages from this bot
+    async def on_rcrp_relay_message(self, message: discord.Message, **data):
+        if len(data['function']):
+            func = getattr(self, data['function'])
+            if func is None:
+                await self.send_log_message(f"Invalid function passed to rcrpsaspdispatch cog. ({data['function']})")
                 return
 
-            if len(data['function']):
-                func = getattr(self, data['function'])
-                if func is None:
-                    await self.send_log_message(f"Invalid function passed to rcrpsaspdispatch cog. ({data['function']})")
-                    return
+            if inspect.iscoroutinefunction(func):
+                await func(**data)
+            else:
+                func(**data)
 
-                if inspect.iscoroutinefunction(func):
-                    await func(**data)
-                else:
-                    func(**data)
-
-            await message.delete()
+        await message.delete()
 
     async def send_sasp_radio_message(self, color: int, message: str):
-        relay_channel = self.bot.get_channel(relay_channel_id)
-        if relay_channel is None:
-            return
-
         samp_message = {
             "message_content": message,
             "message_color": color,
-            "origin": "rudy",
             "callback": "DispatchRadioMessage"
         }
-        await relay_channel.send(json.dumps(samp_message))
+        await send_rcrp_relay_message(samp_message)
 
     async def send_samp_player_message(self, discordid: int, color: int, message: str):
-        relay_channel = self.bot.get_channel(relay_channel_id)
-        if relay_channel is None:
-            return
-
         samp_message = {
             "player_discord_id": str(discordid),
             "message_content": message,
             "message_color": color,
-            "origin": "rudy",
             "callback": "SendPlayerMessageFromDiscord"
         }
 
-        await relay_channel.send(json.dumps(samp_message))
+        await send_rcrp_relay_message(samp_message)
 
     async def send_log_message(self, message: str):
         channel = self.bot.get_channel(logging_channel_id)

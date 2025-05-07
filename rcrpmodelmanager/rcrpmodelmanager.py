@@ -5,11 +5,12 @@ import aiofiles
 import aiofiles.os
 import re
 import os
-import json
 from redbot.core import commands
 from redbot.core.utils.chat_formatting import humanize_list
 from typing import Union
 from redbot.core.bot import Red
+
+from ..rcrprelay.rcrprelay import send_rcrp_relay_message
 
 
 class model_types():
@@ -90,15 +91,9 @@ class RCRPModelManager(commands.Cog):
         self.model_urls = []  # list containing each URL that needs to used for downloading
         self.rcrp_model_path = "/home/rcrp/domains/cdn.redcountyrp.com/public_html/rcrp"  # path of RCRP models
         self.rcrp_guild_id = 93142223473905664
-        self.relay_channel_id = 776943930603470868
 
     async def cog_load(self):
         self.mysqlinfo = await self.bot.get_shared_api_tokens('mysql')
-
-    async def send_relay_channel_message(self, message: str):
-        rcrpguild = await self.bot.fetch_guild(self.rcrp_guild_id)
-        relaychannel = rcrpguild.get_channel(self.relay_channel_id)
-        await relaychannel.send(message)
 
     async def validate_model_submission(self, modelid: int, dff_url: str, txd_url: str):
         if modelid in self.models:
@@ -371,11 +366,10 @@ class RCRPModelManager(commands.Cog):
         message = humanize_list(model_id_list)
         message = message.replace(', and', ',')
         rcrp_message = {
-            "origin": "rudy",
             "callback": "LoadCustomModels",
             "models": message
         }
-        await self.send_relay_channel_message(json.dumps(rcrp_message))
+        await send_rcrp_relay_message(rcrp_message)
         await ctx.send(f'{model_count} {"models" if model_count != 1 else "model"} has been successfully downloaded and put in their appropriate directories. The RCRP game server has been instructed to check for new models.')
 
         # remove the temporary directory

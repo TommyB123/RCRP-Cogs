@@ -1,9 +1,9 @@
 import discord
 import aiomysql
-import json
 from redbot.core import commands
 from redbot.core.bot import Red
 from datetime import datetime
+from rcrprelay.rcrprelay import send_rcrp_relay_message
 
 # weapon names
 weaponnames = {
@@ -128,7 +128,6 @@ def member_is_verified(member: discord.Member):
 class RCRPStaffCommands(commands.Cog):
     def __init__(self, bot: Red):
         self.bot = bot
-        self.relay_channel_id = 776943930603470868
 
         # remove some of red's default punishment commands to replace with our own
         self.bot.remove_command('ban')
@@ -136,10 +135,6 @@ class RCRPStaffCommands(commands.Cog):
 
     async def cog_load(self):
         self.mysqlinfo = await self.bot.get_shared_api_tokens('mysql')
-
-    async def send_relay_channel_message(self, ctx: commands.Context, message: str):
-        relaychannel = ctx.guild.get_channel(self.relay_channel_id)
-        await relaychannel.send(message)
 
     async def fetch_master_id_from_discord_id(self, discordid: int):
         async with aiomysql.connect(**self.mysqlinfo) as sql:
@@ -563,13 +558,12 @@ class RCRPStaffCommands(commands.Cog):
     async def asay(self, ctx: commands.Context, *, message: str):
         """Broadcasts an admin message in-game"""
         rcrp_message = {
-            "origin": "rudy",
             "callback": "SendDiscordAsay",
             "admin": ctx.author.name,
             "message": message
         }
 
-        await self.send_relay_channel_message(ctx, json.dumps(rcrp_message))
+        await send_rcrp_relay_message(rcrp_message)
 
     @rcrp.command()
     @commands.guild_only()
@@ -578,13 +572,12 @@ class RCRPStaffCommands(commands.Cog):
     async def id(self, ctx: commands.Context, *, search: str):
         """Fetches an online player's ID based on user input"""
         rcrp_message = {
-            "origin": "rudy",
             "callback": "SendDiscordIDFetch",
             "target": search,
             "channel": str(ctx.channel.id)
         }
 
-        await self.send_relay_channel_message(ctx, json.dumps(rcrp_message))
+        await send_rcrp_relay_message(rcrp_message)
 
     @rcrp.command()
     @commands.guild_only()
@@ -597,7 +590,6 @@ class RCRPStaffCommands(commands.Cog):
             return
 
         rcrp_message = {
-            "origin": "rudy",
             "callback": "SendDiscordBan",
             "admin_id": master_id,
             "admin_name": ctx.author.name,
@@ -606,7 +598,7 @@ class RCRPStaffCommands(commands.Cog):
             "channel": str(ctx.channel.id)
         }
 
-        await self.send_relay_channel_message(ctx, json.dumps(rcrp_message))
+        await send_rcrp_relay_message(rcrp_message)
 
     @rcrp.command()
     @commands.guild_only()
@@ -619,7 +611,6 @@ class RCRPStaffCommands(commands.Cog):
             return
 
         rcrp_message = {
-            "origin": "rudy",
             "callback": "SendDiscordKick",
             "admin_id": master_id,
             "admin_name": ctx.author.name,
@@ -628,4 +619,4 @@ class RCRPStaffCommands(commands.Cog):
             "channel": str(ctx.channel.id)
         }
 
-        await self.send_relay_channel_message(ctx, json.dumps(rcrp_message))
+        await send_rcrp_relay_message(rcrp_message)
