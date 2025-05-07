@@ -1,9 +1,9 @@
 import discord
 import aiomysql
-import json
 from redbot.core import commands, app_commands
 from redbot.core.utils import menus
 from redbot.core.bot import Red
+from redbot.core.data_manager import cog_data_path
 
 # rcrp guild ID
 rcrpguildid = 93142223473905664
@@ -13,10 +13,6 @@ adminrole = 293441894585729024
 managementrole = 310927289317588992
 ownerrole = 293303836125298690
 staffroles = [ownerrole, adminrole, managementrole]
-
-# lol this is so ghetto
-path = __file__
-path = path.replace('rcrpnormal.py', '')
 
 # ID of the rcrp guild
 rcrpguildid = 93142223473905664
@@ -146,8 +142,7 @@ class RCRPCommands(commands.Cog):
             "channel": str(interaction.channel.id)
         }
 
-        message = json.dumps(rcrp_message)
-        await self.bot.get_cog('RCRP_Relay').send_rcrp_relay_message(message)
+        await self.bot.get_cog('RCRP Relay').send_rcrp_relay_message(rcrp_message)
 
     download = app_commands.Group(name='download', description='Download various SA-MP-related files')
 
@@ -161,7 +156,7 @@ class RCRPCommands(commands.Cog):
     @app_commands.guild_only()
     @app_commands.check(rcrp_check)
     async def codsmp(self, interaction: discord.Interaction):
-        file = discord.File(f'{path}/files/codsmp.zip')
+        file = discord.File(f'{cog_data_path(self)}/files/codsmp.zip')
         await interaction.response.send_message(file=file)
 
     @download.command(name='gta', description='GTA: SA Clean Copy Backup')
