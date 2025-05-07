@@ -23,7 +23,7 @@ class RCRP_Relay(commands.Cog, name="RCRP Relay"):
                 self.bot.dispatch('on_rcrp_relay_message', message, data)
 
     @commands.command()
-    @commands.check()
+    @commands.mod_or_permissions(manage_guild=True)
     async def setrelaychannel(self, ctx: commands.Context, channel: discord.TextChannel):
         if channel is None:
             await ctx.reply('Invalid channel')
