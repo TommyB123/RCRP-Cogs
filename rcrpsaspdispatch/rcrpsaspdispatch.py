@@ -2,7 +2,6 @@ import discord
 import inspect
 from redbot.core import commands
 from redbot.core.bot import Red
-from ..rcrprelay.rcrprelay import send_rcrp_relay_message
 
 sasp_guild_id = 381002103667294208
 rcrp_guild_id = 93142223473905664
@@ -42,7 +41,7 @@ class RCRPDispatch(commands.Cog, name='SASP Dispatch'):
             "message_color": color,
             "callback": "DispatchRadioMessage"
         }
-        await send_rcrp_relay_message(samp_message)
+        await self.bot.get_cog('RCRP_Relay').send_rcrp_relay_message(samp_message)
 
     async def send_samp_player_message(self, discordid: int, color: int, message: str):
         samp_message = {
@@ -52,7 +51,7 @@ class RCRPDispatch(commands.Cog, name='SASP Dispatch'):
             "callback": "SendPlayerMessageFromDiscord"
         }
 
-        await send_rcrp_relay_message(samp_message)
+        await self.bot.get_cog('RCRP_Relay').send_rcrp_relay_message(samp_message)
 
     async def send_log_message(self, message: str):
         channel = self.bot.get_channel(logging_channel_id)

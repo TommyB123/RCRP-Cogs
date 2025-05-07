@@ -3,7 +3,6 @@ import aiomysql
 from redbot.core import commands
 from redbot.core.bot import Red
 from datetime import datetime
-from rcrprelay.rcrprelay import send_rcrp_relay_message
 
 # weapon names
 weaponnames = {
@@ -563,7 +562,7 @@ class RCRPStaffCommands(commands.Cog):
             "message": message
         }
 
-        await send_rcrp_relay_message(rcrp_message)
+        await self.bot.get_cog('RCRP_Relay').send_rcrp_relay_message(rcrp_message)
 
     @rcrp.command()
     @commands.guild_only()
@@ -577,7 +576,7 @@ class RCRPStaffCommands(commands.Cog):
             "channel": str(ctx.channel.id)
         }
 
-        await send_rcrp_relay_message(rcrp_message)
+        await self.bot.get_cog('RCRP_Relay').send_rcrp_relay_message(rcrp_message)
 
     @rcrp.command()
     @commands.guild_only()
@@ -598,7 +597,7 @@ class RCRPStaffCommands(commands.Cog):
             "channel": str(ctx.channel.id)
         }
 
-        await send_rcrp_relay_message(rcrp_message)
+        await self.bot.get_cog('RCRP_Relay').send_rcrp_relay_message(rcrp_message)
 
     @rcrp.command()
     @commands.guild_only()
@@ -619,4 +618,4 @@ class RCRPStaffCommands(commands.Cog):
             "channel": str(ctx.channel.id)
         }
 
-        await send_rcrp_relay_message(rcrp_message)
+        await self.bot.get_cog('RCRP_Relay').send_rcrp_relay_message(rcrp_message)

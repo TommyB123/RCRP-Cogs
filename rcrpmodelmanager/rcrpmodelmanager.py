@@ -10,8 +10,6 @@ from redbot.core.utils.chat_formatting import humanize_list
 from typing import Union
 from redbot.core.bot import Red
 
-from ..rcrprelay.rcrprelay import send_rcrp_relay_message
-
 
 class model_types():
     def __init__(self):
@@ -369,7 +367,7 @@ class RCRPModelManager(commands.Cog):
             "callback": "LoadCustomModels",
             "models": message
         }
-        await send_rcrp_relay_message(rcrp_message)
+        await self.bot.get_cog('RCRP_Relay').send_rcrp_relay_message(rcrp_message)
         await ctx.send(f'{model_count} {"models" if model_count != 1 else "model"} has been successfully downloaded and put in their appropriate directories. The RCRP game server has been instructed to check for new models.')
 
         # remove the temporary directory

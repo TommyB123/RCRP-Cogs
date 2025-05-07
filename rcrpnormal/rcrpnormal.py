@@ -4,7 +4,6 @@ import json
 from redbot.core import commands, app_commands
 from redbot.core.utils import menus
 from redbot.core.bot import Red
-from ..rcrprelay.rcrprelay import send_rcrp_relay_message
 
 # rcrp guild ID
 rcrpguildid = 93142223473905664
@@ -148,7 +147,7 @@ class RCRPCommands(commands.Cog):
         }
 
         message = json.dumps(rcrp_message)
-        await send_rcrp_relay_message(message)
+        await self.bot.get_cog('RCRP_Relay').send_rcrp_relay_message(message)
 
     download = app_commands.Group(name='download', description='Download various SA-MP-related files')
 
