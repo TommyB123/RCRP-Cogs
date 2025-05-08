@@ -3,7 +3,6 @@ import aiomysql
 from redbot.core import commands, app_commands
 from redbot.core.utils import menus
 from redbot.core.bot import Red
-from redbot.core.data_manager import cog_data_path
 
 # rcrp guild ID
 rcrpguildid = 93142223473905664
@@ -143,6 +142,7 @@ class RCRPCommands(commands.Cog):
         }
 
         await self.bot.get_cog('RCRP Relay').send_rcrp_relay_message(rcrp_message)
+        await interaction.response.send_message(f'Requested vehicle info for {vehicle} from the RCRP game server.')
 
     download = app_commands.Group(name='download', description='Download various SA-MP-related files')
 
@@ -151,13 +151,6 @@ class RCRPCommands(commands.Cog):
     @app_commands.check(rcrp_check)
     async def samp(self, interaction: discord.Interaction):
         await interaction.response.send_message("Download the latest `omp-launcher-setup.exe` file from [here.](https://github.com/openmultiplayer/launcher/releases)\nInstall to your game directory and then make sure to select 0.3.DL when joining the server.")
-
-    @download.command(name='codsmp', description='Cods MP mod')
-    @app_commands.guild_only()
-    @app_commands.check(rcrp_check)
-    async def codsmp(self, interaction: discord.Interaction):
-        file = discord.File(f'{cog_data_path(self)}/files/codsmp.zip')
-        await interaction.response.send_message(file=file)
 
     @download.command(name='gta', description='GTA: SA Clean Copy Backup')
     @app_commands.guild_only()
