@@ -31,7 +31,7 @@ class RcrpLogin(discord.ui.Modal, title='RCRP account login'):
 
         mysqlconfig = await bot.get_shared_api_tokens('mysql')
         async with aiomysql.connect(**mysqlconfig) as sql:
-            async with sql.cursor() as cursor:
+            async with sql.cursor(aiomysql.DictCursor) as cursor:
                 rows = await cursor.execute('SELECT id, Password, State, Helper, Tester, AdminLevel, discordid FROM masters WHERE Username = %s', (username, ))
                 if rows == 0:
                     await interaction.response.send_message("Invalid account name.", ephemeral=True)
