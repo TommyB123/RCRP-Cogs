@@ -83,7 +83,7 @@ class RCRPCommands(commands.Cog):
     async def admins(self, interaction: discord.Interaction):
         async with aiomysql.connect(**self.mysqlinfo) as sql:
             async with sql.cursor(aiomysql.DictCursor) as cursor:
-                rows = await cursor.execute("SELECT m.Username AS mastername, p.Name AS charactername, (SELECT ps.settingval FROM psettings ps WHERE sqlid = p.id AND ps.setting = 'CSET_AHIDE') AS hidden FROM masters m JOIN players p ON p.MasterAccount = m.id WHERE p.Online = 1 AND m.AdminLevel != 0")
+                rows = await cursor.execute("SELECT m.Username AS mastername, p.Name AS charactername, (SELECT ps.settingval FROM psettings ps WHERE entityid = p.id AND ps.key = 'CSET_AHIDE') AS hidden FROM masters m JOIN players p ON p.MasterAccount = m.id WHERE p.Online = 1 AND m.AdminLevel != 0")
                 if rows == 0:
                     await interaction.response.send_message('There are currently no administrators in-game.', ephemeral=True)
                     return

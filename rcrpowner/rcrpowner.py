@@ -121,13 +121,13 @@ class OwnerCog(commands.Cog):
                     playerdata = await cursor.fetchone()
                     await cursor.execute("SELECT SUM(BankBalance) AS FBank FROM factions WHERE id != 3")
                     factionbank = await cursor.fetchone()
-                    await cursor.execute("SELECT SUM(itemval) AS dollars FROM inventory_player WHERE item = 45")
+                    await cursor.execute("SELECT SUM(value) AS dollars FROM inventory_player WHERE `key` = 'INV_MONEY'")
                     inhandcash = await cursor.fetchone()
-                    await cursor.execute("SELECT SUM(itemval) AS dollars FROM inventory_house WHERE item = 45")
+                    await cursor.execute("SELECT SUM(value) AS dollars FROM inventory_house WHERE `key` = 'INV_MONEY'")
                     housecash = await cursor.fetchone()
-                    await cursor.execute("SELECT SUM(itemval) AS dollars FROM inventory_bizz WHERE item = 45")
+                    await cursor.execute("SELECT SUM(value) AS dollars FROM inventory_bizz WHERE `key` = 'INV_MONEY'")
                     bizzcash = await cursor.fetchone()
-                    await cursor.execute("SELECT SUM(itemval) AS dollars FROM inventory_vehicle WHERE item = 45")
+                    await cursor.execute("SELECT SUM(value) AS dollars FROM inventory_vehicle WHERE `key` = 'INV_MONEY'")
                     vehiclecash = await cursor.fetchone()
                     cashsum = inhandcash['dollars'] + playerdata['Bank'] + playerdata['CheckSlot1'] + playerdata['CheckSlot2'] + playerdata['CheckSlot3'] + factionbank['FBank'] + housecash['dollars'] + bizzcash['dollars'] + vehiclecash['dollars']
 
@@ -152,7 +152,7 @@ class OwnerCog(commands.Cog):
         async with ctx.typing():
             async with aiomysql.connect(**self.mysqlinfo) as sql:
                 async with sql.cursor(aiomysql.DictCursor) as cursor:
-                    await cursor.execute("SELECT SUM(itemval) AS items, item FROM (SELECT * FROM inventory_player UNION SELECT * FROM inventory_house UNION SELECT * FROM inventory_bizz UNION SELECT * FROM inventory_vehicle) t WHERE item IN ('INV_LCOCAINE', 'INV_MCOCAINE', 'INV_HCOCAINE', 'INV_LCRACK', 'INV_MCRACK', 'INV_HCRACK', 'INV_WEED', 'INV_HEROIN') GROUP BY item")
+                    await cursor.execute("SELECT SUM(value) AS items, item FROM (SELECT * FROM inventory_player UNION SELECT * FROM inventory_house UNION SELECT * FROM inventory_bizz UNION SELECT * FROM inventory_vehicle) t WHERE `key` IN ('INV_COCAINE', 'INV_CRACK', 'INV_WEED', 'INV_HEROIN') GROUP BY `key`")
 
                     embed = discord.Embed(title='RCRP Drug Statistics', color=0xe74c3c, timestamp=ctx.message.created_at)
                     async for drug in cursor.fetchall():
