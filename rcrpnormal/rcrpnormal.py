@@ -38,11 +38,12 @@ class RCRPCommands(commands.Cog):
                     await ctx.send('There are currently no players in-game.')
                     return
 
+                data = await cursor.fetchall()
                 totalcount = 0
                 counter = 0
                 embeds = []
                 string = ""
-                async for player in cursor.fetchall():
+                for player in data:
                     string += f'{player[0]}\n'
                     counter += 1
                     totalcount += 1
@@ -69,7 +70,7 @@ class RCRPCommands(commands.Cog):
     @app_commands.guild_only()
     async def server(self, interaction: discord.Interaction):
         async with aiomysql.connect(**self.mysqlinfo) as sql:
-            async with sql.cursor(aiomysql.DictCursor) as cursor:
+            async with sql.cursor() as cursor:
                 count = await cursor.execute("SELECT NULL FROM players WHERE Online = 1")
                 embed = discord.Embed(title="Red County Roleplay")
                 embed.set_thumbnail(url=interaction.guild.icon.url)
@@ -82,17 +83,20 @@ class RCRPCommands(commands.Cog):
     @app_commands.guild_only()
     async def admins(self, interaction: discord.Interaction):
         async with aiomysql.connect(**self.mysqlinfo) as sql:
-            async with sql.cursor(aiomysql.DictCursor) as cursor:
+            async with sql.cursor() as cursor:
                 rows = await cursor.execute("SELECT m.Username AS mastername, p.Name AS charactername, (SELECT ps.value FROM psettings ps WHERE entityid = p.id AND ps.key = 'CSET_AHIDE') AS hidden FROM masters m JOIN players p ON p.MasterAccount = m.id WHERE p.Online = 1 AND m.AdminLevel != 0")
                 if rows == 0:
                     await interaction.response.send_message('There are currently no administrators in-game.', ephemeral=True)
                     return
 
+                data = await cursor.fetchall()
+
                 embed = discord.Embed(title='In-game Administrators', color=0xf21818, timestamp=interaction.created_at)
                 visible = 0
-                async for admin in cursor.fetchall():
-                    if admin['hidden'] != 1:
-                        embed.add_field(name=admin['mastername'], value=admin['charactername'])
+                for admin in data:
+                    ma_name, char_name, hidden = admin
+                    if hidden != 1:
+                        embed.add_field(name=ma_name, value=char_name)
                         visible += 1
 
                 if visible != 0:
@@ -110,9 +114,12 @@ class RCRPCommands(commands.Cog):
                     await interaction.response.send_message('There are currently no helpers in-game.', ephemeral=True)
                     return
 
+                data = await cursor.fetchall()
+
                 embed = discord.Embed(title='Ingame Helpers', color=0xe74c3c, timestamp=interaction.created_at)
-                async for helper in cursor.fetchall():
-                    embed.add_field(name=helper['mastername'], value=helper['charactername'])
+                for helper in data:
+                    ma_name, char_name = helper
+                    embed.add_field(name=ma_name, value=char_name)
 
                 await interaction.response.send_message(embed=embed)
 

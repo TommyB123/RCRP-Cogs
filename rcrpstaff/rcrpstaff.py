@@ -216,7 +216,7 @@ class RCRPStaffCommands(commands.Cog):
     async def house(self, ctx: commands.Context, *, address: str):
         """Queries the database for information of a house based on user-specified input"""
         async with aiomysql.connect(**self.mysqlinfo) as sql:
-            async with sql.cursor(aiomysql.DictCursor) as cursor:
+            async with sql.cursor() as cursor:
                 rows = await cursor.execute("SELECT houses.id, OwnerSQLID, Description, players.Name AS OwnerName, InsideID, ExteriorFurnLimit, Price FROM houses LEFT JOIN players ON players.id = houses.OwnerSQLID WHERE Description LIKE %s", (('%' + address + '%'), ))
                 if rows == 0:
                     await ctx.send("Invalid house address.")
@@ -225,20 +225,20 @@ class RCRPStaffCommands(commands.Cog):
                     await ctx.send('More than one house was found. Please use a more specific address.')
                     return
 
-                house = await cursor.fetchone()
-                if house['OwnerName'] is None:
-                    if house['OwnerSQLID'] == -5:
-                        house['OwnerName'] = "Silver Trading"
+                houseid, ownersqlid, address, ownername, insideid, exteriorfurnlimit, price = await cursor.fetchone()
+                if ownername is None:
+                    if ownersqlid == -5:
+                        ownername = "Silver Trading"
                     else:
-                        house['OwnerName'] = "Unowned"
+                        ownername = "Unowned"
 
-                embed = discord.Embed(title=house['Description'], color=0xe74c3c, url=f"https://redcountyrp.com/admin/assets/houses/{house['id']}")
-                embed.set_thumbnail(url=f"https://redcountyrp.com/images/houses/{house['id']}.png")
-                embed.add_field(name="ID", value=house['id'], inline=False)
-                embed.add_field(name="Owner", value=house['OwnerName'], inline=False)
-                embed.add_field(name="Price", value='${:,}'.format(house['Price']), inline=False)
-                embed.add_field(name="Interior", value=house['InsideID'], inline=False)
-                embed.add_field(name="Ext Furn Limit", value=house['ExteriorFurnLimit'], inline=False)
+                embed = discord.Embed(title=address, color=0xe74c3c, url=f"https://redcountyrp.com/admin/assets/houses/{houseid}")
+                embed.set_thumbnail(url=f"https://redcountyrp.com/images/houses/{houseid}.png")
+                embed.add_field(name="ID", value=houseid, inline=False)
+                embed.add_field(name="Owner", value=ownername, inline=False)
+                embed.add_field(name="Price", value='${:,}'.format(price), inline=False)
+                embed.add_field(name="Interior", value=insideid, inline=False)
+                embed.add_field(name="Ext Furn Limit", value=exteriorfurnlimit, inline=False)
                 await ctx.send(embed=embed)
 
     @lookup.command()
@@ -248,7 +248,7 @@ class RCRPStaffCommands(commands.Cog):
     async def business(self, ctx: commands.Context, *, description: str):
         """Queries the database for information of a business based on user-specified input"""
         async with aiomysql.connect(**self.mysqlinfo) as sql:
-            async with sql.cursor(aiomysql.DictCursor) as cursor:
+            async with sql.cursor() as cursor:
                 rows = await cursor.execute("SELECT bizz.id, OwnerSQLID, Description, players.Name AS OwnerName, Price, BizzEarnings, IsSpecial, Loaned FROM bizz LEFT JOIN players ON players.id = bizz.OwnerSQLID WHERE Description LIKE %s", (('%' + description + '%'), ))
                 if rows == 0:
                     await ctx.send("Invalid business.")
@@ -257,21 +257,21 @@ class RCRPStaffCommands(commands.Cog):
                     await ctx.send('More than one business was found. Please use a more specific name.')
                     return
 
-                bizz = await cursor.fetchone()
-                if bizz['OwnerName'] is None:
-                    if bizz['OwnerSQLID'] == -5:
-                        bizz['OwnerName'] = "Silver Trading"
+                bizzid, ownersqlid, address, ownername, price, earnings, special, loaned = await cursor.fetchone()
+                if ownername is None:
+                    if ownersqlid == -5:
+                        ownername = "Silver Trading"
                     else:
-                        bizz['OwnerName'] = "Unowned"
+                        ownername = "Unowned"
 
-                embed = discord.Embed(title=bizz['Description'], color=0xe74c3c, url=f"https://redcountyrp.com/admin/assets/businesses/{bizz['id']}")
-                embed.set_thumbnail(url=f"https://redcountyrp.com/images/businesses/{bizz['id']}.png")
-                embed.add_field(name="ID", value=bizz['id'], inline=False)
-                embed.add_field(name="Owner", value=bizz['OwnerName'], inline=False)
-                embed.add_field(name="Price", value='${:,}'.format(bizz['Price']), inline=False)
-                embed.add_field(name="Earnings", value='${:,}'.format(bizz['BizzEarnings']), inline=False)
-                embed.add_field(name="Special Int", value='Yes' if bizz['IsSpecial'] == 1 else 'No', inline=False)
-                embed.add_field(name="Loaned", value='Yes' if bizz['Loaned'] == 1 else 'No', inline=False)
+                embed = discord.Embed(title=address, color=0xe74c3c, url=f"https://redcountyrp.com/admin/assets/businesses/{bizzid}")
+                embed.set_thumbnail(url=f"https://redcountyrp.com/images/businesses/{bizzid}.png")
+                embed.add_field(name="ID", value=bizzid, inline=False)
+                embed.add_field(name="Owner", value=ownername, inline=False)
+                embed.add_field(name="Price", value='${:,}'.format(price), inline=False)
+                embed.add_field(name="Earnings", value='${:,}'.format(earnings), inline=False)
+                embed.add_field(name="Special Int", value='Yes' if special == 1 else 'No', inline=False)
+                embed.add_field(name="Loaned", value='Yes' if loaned == 1 else 'No', inline=False)
                 await ctx.send(embed=embed)
 
     @lookup.command()
@@ -286,17 +286,20 @@ class RCRPStaffCommands(commands.Cog):
             return
 
         async with aiomysql.connect(**self.mysqlinfo) as sql:
-            async with sql.cursor(aiomysql.DictCursor) as cursor:
-                rows = await cursor.execute("SELECT WeaponID AS weapon, COUNT(*) AS count FROM weapons WHERE OwnerSQLID IN (SELECT id FROM players WHERE MasterAccount = %s) AND Deleted = 0 GROUP BY WeaponID", (master_id, ))
+            async with sql.cursor() as cursor:
+                rows = await cursor.execute("SELECT WeaponID, COUNT(*) AS count FROM weapons WHERE OwnerSQLID IN (SELECT id FROM players WHERE MasterAccount = %s) AND Deleted = 0 GROUP BY WeaponID", (master_id, ))
                 if rows == 0:
                     await ctx.send(f'{master_name} does not have any weapons.')
                     return
 
+                data = await cursor.fetchall()
+
                 total = 0
                 embed = discord.Embed(title=f'Weapons of {master_name}', color=0xe74c3c, timestamp=ctx.message.created_at)
-                async for weapon in cursor.fetchall():
-                    embed.add_field(name=weaponnames[weapon['weapon']], value='{:,}'.format(weapon['count']))
-                    total += weapon['count']
+                for weapon in data:
+                    weaponid, weapons = weapon
+                    embed.add_field(name=weaponnames[weaponid], value='{:,}'.format(weapons))
+                    total += weapons
                 embed.add_field(name='Total Weapons', value='{:,}'.format(total))
                 await ctx.send(embed=embed)
 
@@ -501,9 +504,29 @@ class RCRPStaffCommands(commands.Cog):
             async with sql.cursor() as cursor:
                 await cursor.execute("SELECT * FROM ucpplayerscron ORDER BY Date DESC LIMIT 14")
 
+                data = await cursor.fetchall()
                 message = ''
-                async for peak in cursor.fetchall():
-                    message += f'{peak[0]} - {peak[1]} players\n'
+                for peak in data:
+                    date, players = peak
+                    message += f'{date} - {players} players\n'
+
+                await ctx.send(message)
+
+    @commands.command()
+    @commands.guild_only()
+    @commands.check(rcrp_check)
+    @commands.check(admin_check)
+    async def top(self, ctx: commands.Context):
+        """Fetches the top 15 concurrent player count records"""
+        async with aiomysql.connect(**self.mysqlinfo) as sql:
+            async with sql.cursor() as cursor:
+                await cursor.execute("SELECT * FROM ucpplayerscron ORDER BY MaxPlayers DESC LIMIT 15")
+
+                data = await cursor.fetchall()
+                message = ''
+                for peak in data:
+                    date, players = peak
+                    message += f'{date} - {players} players\n'
 
                 await ctx.send(message)
 

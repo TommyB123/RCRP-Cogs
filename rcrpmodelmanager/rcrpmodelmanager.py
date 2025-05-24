@@ -286,17 +286,20 @@ class RCRPModelManager(commands.Cog):
     async def search(self, ctx: commands.Context, search: str):
         """Searches the database to find models of the specified type with the search term in their DFF name"""
         async with aiomysql.connect(**self.mysqlinfo) as sql:
-            async with sql.cursor(aiomysql.DictCursor) as cursor:
-                rows = await cursor.execute("SELECT * FROM models WHERE dff_name LIKE %s", (('%' + search + '%'), ))
+            async with sql.cursor() as cursor:
+                rows = await cursor.execute("SELECT modelid, dff_name, txd_name FROM models WHERE dff_name LIKE %s", (('%' + search + '%'), ))
                 if rows == 0:
                     await ctx.send('Could not find a model of that type based on your search term.')
                     return
 
+                data = await cursor.fetchall()
+
                 embed = discord.Embed(title='Search Results', color=0xe74c3c)
-                async for model in cursor.fetchall():
-                    embed.add_field(name='Model ID', value=model['modelid'], inline=True)
-                    embed.add_field(name='DFF Name', value=model['dff_name'], inline=True)
-                    embed.add_field(name='TXD Name', value=model['txd_name'], inline=True)
+                for model in data:
+                    modelid, dff, txd = model
+                    embed.add_field(name='Model ID', value=modelid, inline=True)
+                    embed.add_field(name='DFF Name', value=dff, inline=True)
+                    embed.add_field(name='TXD Name', value=txd, inline=True)
                 await ctx.send(embed=embed)
 
     @modelmanager.command()

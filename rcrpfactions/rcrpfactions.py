@@ -164,8 +164,10 @@ class RCRPFactions(commands.Cog, name="Faction Commands"):
                     return
 
                 factionstring = ''
-                async for faction in cursor.fetchall():
-                    factionstring += f'{faction[1]} (ID {faction[0]})\n'
+                data = await cursor.fetchall()
+                for faction in data:
+                    id, name = faction
+                    factionstring += f'{name} (ID {id})\n'
                 embed = discord.Embed(title='RCRP Factions', description=factionstring, color=0xe74c3c, timestamp=ctx.message.created_at)
                 await ctx.send(embed=embed)
 
@@ -231,15 +233,17 @@ class RCRPFactions(commands.Cog, name="Faction Commands"):
             return
 
         async with aiomysql.connect(**self.mysqlinfo) as sql:
-            async with sql.cursor(aiomysql.DictCursor) as cursor:
+            async with sql.cursor() as cursor:
                 rows = await cursor.execute("SELECT Name, fr.rankname, m.Username FROM players p LEFT JOIN factionranks fr ON p.Faction = fr.fid LEFT JOIN masters m ON m.id = p.MasterAccount WHERE Faction = %s AND fr.slot = FactionRank AND Online = 1 ORDER BY FactionRank DESC", (factionid, ))
                 if rows == 0:
                     await ctx.send('There are currently no members online.')
                     return
 
                 memberstring = ''
-                async for member in cursor.fetchall():
-                    memberstring += f"{member['rankname']} {member['Name'].replace('_', '')} ({member['Username']})"
+                data = await cursor.fetchall()
+                for member in data:
+                    name, rankname, username = member
+                    memberstring += f"{rankname} {name.replace('_', '')} ({username})"
 
                 embed = discord.Embed(title=f'Online Members ({cursor.rowcount})', description=memberstring, color=0xe74c3c)
                 embed.timestamp = ctx.message.created_at
@@ -252,11 +256,14 @@ class RCRPFactions(commands.Cog, name="Faction Commands"):
     async def online(self, ctx: commands.Context):
         """Collects a list of factions and their online member counts"""
         async with aiomysql.connect(**self.mysqlinfo) as sql:
-            async with sql.cursor(aiomysql.DictCursor) as cursor:
+            async with sql.cursor() as cursor:
                 await cursor.execute("SELECT COUNT(players.id) AS members, COUNT(IF(Online = 1, 1, NULL)) AS onlinemembers, factions.FNameShort AS name FROM players JOIN factions ON players.Faction = factions.id WHERE Faction != 0 GROUP BY Faction ORDER BY Faction ASC")
+                data = await cursor.fetchall()
+
                 embed = discord.Embed(title="Faction List", color=0xe74c3c, timestamp=ctx.message.created_at)
-                async for factioninfo in cursor.fetchall():
-                    embed.add_field(name=factioninfo['name'], value=f"{factioninfo['onlinemembers']}/{factioninfo['members']}", inline=True)
+                for factioninfo in data:
+                    members, online, factionname = factioninfo
+                    embed.add_field(name=factionname, value=f'{online}/{members}', inline=True)
                 await ctx.send(embed=embed)
 
     @commands.command()

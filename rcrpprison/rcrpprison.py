@@ -31,14 +31,15 @@ class RCRPPrison(commands.Cog, name="RCRP Prison"):
     async def inmates(self, ctx: commands.Context):
         """Fetches a list of inmates that are currently in-game"""
         async with aiomysql.connect(**self.mysqlinfo) as sql:
-            async with sql.cursor(aiomysql.DictCursor) as cursor:
+            async with sql.cursor() as cursor:
                 rows = await cursor.execute("SELECT players.Name, masters.Username, settingval, extra1 FROM psettings LEFT JOIN players ON psettings.sqlid = players.id LEFT JOIN masters ON players.MasterAccount = masters.id WHERE setting = 6 AND players.Online = 1")
                 if rows == 0:
                     await ctx.send('There are currently no online prisoners.')
                     return
 
                 prisonstring = ''
-                async for prisoner in cursor.fetchall():
+                data = await cursor.fetchall()
+                for prisoner in data:
                     minutes = "minutes" if cursor.rowcount != 1 else "minute"
                     prisonstring += f"{prisoner['Name'].replace('_', ' ')} ({prisoner['Username']}) - Cell {prisoner['settingval']} ({prisoner['extra1']} {minutes} remaining)\n"
 

@@ -37,22 +37,22 @@ class RcrpLogin(discord.ui.Modal, title='RCRP account login'):
                     await interaction.response.send_message("Invalid account name.", ephemeral=True)
                     return
 
-                data = await cursor.fetchone()
-                if data['State'] != 1:
+                id, password, state, helper, tester, adminlevel, discordid = await cursor.fetchone()
+                if state != 1:
                     await interaction.response.send_message("You cannot verify your Master Account if you have not passed the roleplay quiz and been whitelisted on the server.\nIf you're looking for help with the registration process, visit [our forums](https://forum.redcountyrp.com) for more info.", ephemeral=True)
                     return
 
-                if data['discordid'] != 0:
-                    user = bot.get_user(data['discordid'])
+                if discordid != 0:
+                    user = bot.get_user(discordid)
                     if user is not None:
                         guild = await bot.fetch_guild(rcrpguildid)
                         bans = [ban async for ban in guild.bans(limit=2000) if ban.user.id == user.id]
                         if len(bans):
                             await interaction.response.send_message("This RCRP account is linked to a discord account that is banned from the RCRP discord.")
                             return
-                    await cursor.execute("UPDATE masters SET discordid = 0 WHERE id = %s", (data['id'], ))
+                    await cursor.execute("UPDATE masters SET discordid = 0 WHERE id = %s", (id, ))
 
-                stored_password = data['Password'].encode()
+                stored_password = password.encode()
                 password_match = bcrypt.checkpw(password, stored_password)
 
                 if password_match is False:
@@ -62,17 +62,17 @@ class RcrpLogin(discord.ui.Modal, title='RCRP account login'):
                 verified_member: discord.Member = interaction.user
                 newroles = []
                 newroles.append(interaction.guild.get_role(verifiedrole))
-                if data['Helper'] == 1:  # guy is helper
+                if helper == 1:  # guy is helper
                     newroles.append(interaction.guild.get_role(helperrole))
-                if data['Tester'] == 1:  # guy is tester
+                if tester == 1:  # guy is tester
                     newroles.append(interaction.guild.get_role(testerrole))
-                if data['AdminLevel'] != 0:  # guy is admin
+                if adminlevel != 0:  # guy is admin
                     newroles.append(interaction.guild.get_role(adminrole))
-                if data['AdminLevel'] == 4:  # guy is management
+                if adminlevel == 4:  # guy is management
                     newroles.append(interaction.guild.get_role(managementrole))
                 await verified_member.add_roles(*newroles)
 
-                await cursor.execute("UPDATE masters SET discordid = %s WHERE id = %s", (verified_member.id, data['id'], ))
+                await cursor.execute("UPDATE masters SET discordid = %s WHERE id = %s", (verified_member.id, id, ))
 
                 await interaction.response.send_message(f'You have successfully linked your Discord account ({interaction.user.mention}) to the RCRP account {username}!', ephemeral=True)
 

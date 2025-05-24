@@ -116,9 +116,9 @@ class OwnerCog(commands.Cog):
         """Collects statistics about the server's economy"""
         async with ctx.typing():
             async with aiomysql.connect(**self.mysqlinfo) as sql:
-                async with sql.cursor(aiomysql.DictCursor) as cursor:
+                async with sql.cursor() as cursor:
                     await cursor.execute("SELECT SUM(Bank) AS Bank, SUM(Check1) AS CheckSlot1, SUM(Check2) AS CheckSlot2, SUM(Check3) AS CheckSlot3 FROM players")
-                    playerdata = await cursor.fetchone()
+                    banksum, check1sum, check2sum, check3sum = await cursor.fetchone()
                     await cursor.execute("SELECT SUM(BankBalance) AS FBank FROM factions WHERE id != 3")
                     factionbank = await cursor.fetchone()
                     await cursor.execute("SELECT SUM(value) AS dollars FROM inventory_player WHERE `key` = 'INV_MONEY'")
@@ -129,18 +129,18 @@ class OwnerCog(commands.Cog):
                     bizzcash = await cursor.fetchone()
                     await cursor.execute("SELECT SUM(value) AS dollars FROM inventory_vehicle WHERE `key` = 'INV_MONEY'")
                     vehiclecash = await cursor.fetchone()
-                    cashsum = inhandcash['dollars'] + playerdata['Bank'] + playerdata['CheckSlot1'] + playerdata['CheckSlot2'] + playerdata['CheckSlot3'] + factionbank['FBank'] + housecash['dollars'] + bizzcash['dollars'] + vehiclecash['dollars']
+                    cashsum = inhandcash + banksum + check1sum + check2sum + check3sum + factionbank + housecash + bizzcash + vehiclecash
 
                     embed = discord.Embed(title='RCRP Economy Statistics', color=0xe74c3c, timestamp=ctx.message.created_at)
-                    embed.add_field(name="In-Hand Cash", value='${:,}'.format(inhandcash['dollars']))
-                    embed.add_field(name="Player Banks", value='${:,}'.format(playerdata['Bank']))
-                    embed.add_field(name="Check Slot 1", value='${:,}'.format(playerdata['CheckSlot1']))
-                    embed.add_field(name="Check Slot 2", value='${:,}'.format(playerdata['CheckSlot2']))
-                    embed.add_field(name="Check Slot 3", value='${:,}'.format(playerdata['CheckSlot3']))
-                    embed.add_field(name='Faction Banks (excluding ST)', value='${:,}'.format(factionbank['FBank']))
-                    embed.add_field(name='Stored House Cash', value='${:,}'.format(housecash['dollars']))
-                    embed.add_field(name='Stored Business Cash', value='${:,}'.format(bizzcash['dollars']))
-                    embed.add_field(name='Stored Vehicle Cash', value='${:,}'.format(vehiclecash['dollars']))
+                    embed.add_field(name="In-Hand Cash", value='${:,}'.format(inhandcash))
+                    embed.add_field(name="Player Banks", value='${:,}'.format(banksum))
+                    embed.add_field(name="Check Slot 1", value='${:,}'.format(check1sum))
+                    embed.add_field(name="Check Slot 2", value='${:,}'.format(check2sum))
+                    embed.add_field(name="Check Slot 3", value='${:,}'.format(check3sum))
+                    embed.add_field(name='Faction Banks (excluding ST)', value='${:,}'.format(factionbank))
+                    embed.add_field(name='Stored House Cash', value='${:,}'.format(housecash))
+                    embed.add_field(name='Stored Business Cash', value='${:,}'.format(bizzcash))
+                    embed.add_field(name='Stored Vehicle Cash', value='${:,}'.format(vehiclecash))
                     embed.add_field(name='Total', value='${:,}'.format(cashsum))
                     await ctx.send(embed=embed)
 
@@ -151,12 +151,14 @@ class OwnerCog(commands.Cog):
         """Collects statistics related to how many drugs are on the server"""
         async with ctx.typing():
             async with aiomysql.connect(**self.mysqlinfo) as sql:
-                async with sql.cursor(aiomysql.DictCursor) as cursor:
+                async with sql.cursor() as cursor:
                     await cursor.execute("SELECT SUM(value) AS items, item FROM (SELECT * FROM inventory_player UNION SELECT * FROM inventory_house UNION SELECT * FROM inventory_bizz UNION SELECT * FROM inventory_vehicle) t WHERE `key` IN ('INV_COCAINE', 'INV_CRACK', 'INV_WEED', 'INV_HEROIN') GROUP BY `key`")
+                    data = await cursor.fetchall()
 
                     embed = discord.Embed(title='RCRP Drug Statistics', color=0xe74c3c, timestamp=ctx.message.created_at)
-                    async for drug in cursor.fetchall():
-                        embed.add_field(name=drug_names[drug['item']], value='{:,}'.format(drug['items']))
+                    for drug in data:
+                        quantity, drug = drug
+                        embed.add_field(name=drug_names[drug], value='{:,}'.format(quantity))
                     await ctx.send(embed=embed)
 
     @commands.command()
@@ -165,17 +167,20 @@ class OwnerCog(commands.Cog):
     async def weapons(self, ctx: commands.Context, origin: int):
         """Queries the database for weapon statistics depending on its origin"""
         async with aiomysql.connect(**self.mysqlinfo) as sql:
-            async with sql.cursor(aiomysql.DictCursor) as cursor:
+            async with sql.cursor() as cursor:
                 rows = await cursor.execute("SELECT COUNT(*) AS count, WeaponID FROM weapons WHERE WeaponOrigin = %s AND Deleted = 0 GROUP BY WeaponID ORDER BY WeaponID", (origin, ))
                 if rows == 0:
                     await ctx.send("Invalid origin type.")
                     return
 
+                data = await cursor.fetchall()
+
                 embed = discord.Embed(title=f'RCRP Weapon Statistics ({origins[origin]})', color=0xe74c3c, timestamp=ctx.message.created_at)
                 totalweps = 0
-                async for weapon in cursor.fetchall():
-                    embed.add_field(name=weaponnames[weapon['WeaponID']], value='{:,}'.format(weapon['count']))
-                    totalweps += weapon['count']
+                for weapon in data:
+                    weapons, weaponid = weapon
+                    embed.add_field(name=weaponnames[weaponid], value='{:,}'.format(weapons))
+                    totalweps += weapons
                 embed.add_field(name='Total', value='{:,}'.format(totalweps))
                 await ctx.send(embed=embed)
 
