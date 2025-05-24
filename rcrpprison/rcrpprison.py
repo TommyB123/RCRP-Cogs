@@ -1,5 +1,6 @@
 import discord
 import aiomysql
+import json
 from redbot.core import commands
 from redbot.core.bot import Red
 
@@ -32,7 +33,7 @@ class RCRPPrison(commands.Cog, name="RCRP Prison"):
         """Fetches a list of inmates that are currently in-game"""
         async with aiomysql.connect(**self.mysqlinfo) as sql:
             async with sql.cursor() as cursor:
-                rows = await cursor.execute("SELECT players.Name, masters.Username, settingval, extra1 FROM psettings LEFT JOIN players ON psettings.sqlid = players.id LEFT JOIN masters ON players.MasterAccount = masters.id WHERE setting = 6 AND players.Online = 1")
+                rows = await cursor.execute("SELECT p.Name, m.Username, value, extra FROM psettings ps LEFT JOIN players p ON ps.entityid = p.id LEFT JOIN masters m ON p.MasterAccount = m.id WHERE `key` = 'CSET_PRISON' AND p.Online = 1")
                 if rows == 0:
                     await ctx.send('There are currently no online prisoners.')
                     return
@@ -40,10 +41,12 @@ class RCRPPrison(commands.Cog, name="RCRP Prison"):
                 prisonstring = ''
                 data = await cursor.fetchall()
                 for prisoner in data:
-                    minutes = "minutes" if cursor.rowcount != 1 else "minute"
-                    prisonstring += f"{prisoner['Name'].replace('_', ' ')} ({prisoner['Username']}) - Cell {prisoner['settingval']} ({prisoner['extra1']} {minutes} remaining)\n"
+                    char_name, ma_name, time, extra = prisoner
+                    extra_data = json.loads(extra)
+                    minutes = "minutes" if time != 1 else "minute"
+                    prisonstring += f"{char_name.replace('_', ' ')} ({ma_name}) - Cell {extra_data['PRISON_CELL']} ({time} {minutes} remaining)\n"
 
-                embed = discord.Embed(title=f'Online Prisoners ({cursor.rowcount})', description=prisonstring, color=0xe74c3c)
+                embed = discord.Embed(title=f'Online Prisoners ({rows})', description=prisonstring, color=0xe74c3c)
                 embed.timestamp = ctx.message.created_at
                 await ctx.send(embed=embed)
 

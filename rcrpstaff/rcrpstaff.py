@@ -169,17 +169,17 @@ class RCRPStaffCommands(commands.Cog):
         """Fetches Master Account info for a verified Discord member"""
         async with aiomysql.connect(**self.mysqlinfo) as sql:
             async with sql.cursor() as cursor:
-                rows = await cursor.execute("SELECT id, Username, UNIX_TIMESTAMP(RegTimeStamp) AS RegStamp, LastLog FROM masters WHERE discordid = %s", (discord_user.id, ))
+                rows = await cursor.execute("SELECT id, Username, UNIX_TIMESTAMP(RegTimeStamp), LastLog FROM masters WHERE discordid = %s", (discord_user.id, ))
                 if rows == 0:
                     await ctx.send(f"{discord_user} does not have a Master Account linked to their Discord account.")
                     return
 
-                data = await cursor.fetchone()
-                embed = discord.Embed(title=f"{data[1]} - {discord_user}", url=f"https://redcountyrp.com/admin/masters/{data[0]}", color=0xe74c3c)
-                embed.add_field(name="Account ID", value=data[0], inline=False)
-                embed.add_field(name="Username", value=data[1], inline=False)
-                embed.add_field(name="Registration Date", value=datetime.utcfromtimestamp(data[2]).strftime('%Y-%m-%d %H:%M:%S'), inline=False)
-                embed.add_field(name="Last Login Date", value=datetime.utcfromtimestamp(data[3]).strftime('%Y-%m-%d %H:%M:%S'), inline=False)
+                id, name, regstamp, lastlogin = await cursor.fetchone()
+                embed = discord.Embed(title=f"{name} - {discord_user}", url=f"https://redcountyrp.com/admin/masters/{id}", color=0xe74c3c)
+                embed.add_field(name="Account ID", value=id, inline=False)
+                embed.add_field(name="Username", value=name, inline=False)
+                embed.add_field(name="Registration Date", value=datetime.utcfromtimestamp(regstamp).strftime('%Y-%m-%d %H:%M:%S'), inline=False)
+                embed.add_field(name="Last Login Date", value=datetime.utcfromtimestamp(lastlogin).strftime('%Y-%m-%d %H:%M:%S'), inline=False)
                 await ctx.send(embed=embed)
 
     @lookup.command()
@@ -190,23 +190,23 @@ class RCRPStaffCommands(commands.Cog):
         """Fetches a Discord account based on a Master Account name search"""
         async with aiomysql.connect(**self.mysqlinfo) as sql:
             async with sql.cursor() as cursor:
-                rows = await cursor.execute("SELECT id, discordid, UNIX_TIMESTAMP(RegTimeStamp) AS RegStamp, LastLog FROM masters WHERE Username = %s", (master_name, ))
+                rows = await cursor.execute("SELECT id, discordid, UNIX_TIMESTAMP(RegTimeStamp), LastLog FROM masters WHERE Username = %s", (master_name, ))
                 if rows == 0:
                     await ctx.send(f"{master_name} is not a valid account name.")
                     return
 
-                data = await cursor.fetchone()
-                if data[1] is None or data[1] == 0:
+                id, discordid, regstamp, lastlogin = await cursor.fetchone()
+                if discordid is None or discordid == 0:
                     await ctx.send(f"{master_name} does not have a Discord account linked to their MA.")
                     return
 
-                matcheduser = await self.bot.fetch_user(data[1])
-                embed = discord.Embed(title=f"{master_name}", url=f"https://redcountyrp.com/admin/masters/{data[0]}", color=0xe74c3c)
+                matcheduser = await self.bot.fetch_user(discordid)
+                embed = discord.Embed(title=f"{master_name}", url=f"https://redcountyrp.com/admin/masters/{id}", color=0xe74c3c)
                 embed.add_field(name="Discord User", value=matcheduser.mention)
-                embed.add_field(name="Account ID", value=data[0], inline=False)
+                embed.add_field(name="Account ID", value=id, inline=False)
                 embed.add_field(name="Username", value=master_name, inline=False)
-                embed.add_field(name="Registration Date", value=datetime.utcfromtimestamp(data[2]).strftime('%Y-%m-%d %H:%M:%S'), inline=False)
-                embed.add_field(name="Last Login Date", value=datetime.utcfromtimestamp(data[3]).strftime('%Y-%m-%d %H:%M:%S'), inline=False)
+                embed.add_field(name="Registration Date", value=datetime.utcfromtimestamp(regstamp).strftime('%Y-%m-%d %H:%M:%S'), inline=False)
+                embed.add_field(name="Last Login Date", value=datetime.utcfromtimestamp(lastlogin).strftime('%Y-%m-%d %H:%M:%S'), inline=False)
                 await ctx.send(embed=embed)
 
     @lookup.command()
@@ -443,10 +443,10 @@ class RCRPStaffCommands(commands.Cog):
         async with aiomysql.connect(**self.mysqlinfo) as sql:
             async with sql.cursor() as cursor:
                 await cursor.execute("SELECT Tester FROM masters WHERE discordid = %s", (member.id, ))
-                data = await cursor.fetchone()
+                istester = await cursor.fetchone()[0]
                 tester = ctx.guild.get_role(testerrole)
 
-                if data[0] == 0:  # they're not a tester, let's make them one
+                if istester == 0:  # they're not a tester, let's make them one
                     await cursor.execute("UPDATE masters SET Tester = 1 WHERE discordid = %s", (member.id, ))
                     await member.add_roles(tester)
                     await ctx.send(f'{member.mention} is now a tester!')
@@ -468,10 +468,10 @@ class RCRPStaffCommands(commands.Cog):
         async with aiomysql.connect(**self.mysqlinfo) as sql:
             async with sql.cursor() as cursor:
                 await cursor.execute("SELECT Helper FROM masters WHERE discordid = %s", (member.id, ))
-                data = await cursor.fetchone()
+                ishelper = await cursor.fetchone()[0]
                 helper = ctx.guild.get_role(helperrole)
 
-                if data[0] == 0:  # they're not a tester, let's make them one
+                if ishelper == 0:  # they're not a tester, let's make them one
                     await cursor.execute("UPDATE masters SET Helper = 1 WHERE discordid = %s", (member.id, ))
                     await member.add_roles(helper)
                     await ctx.send(f'{member.mention} is now a helper!')

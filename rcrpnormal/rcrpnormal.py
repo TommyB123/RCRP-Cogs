@@ -84,13 +84,12 @@ class RCRPCommands(commands.Cog):
     async def admins(self, interaction: discord.Interaction):
         async with aiomysql.connect(**self.mysqlinfo) as sql:
             async with sql.cursor() as cursor:
-                rows = await cursor.execute("SELECT m.Username AS mastername, p.Name AS charactername, (SELECT ps.value FROM psettings ps WHERE entityid = p.id AND ps.key = 'CSET_AHIDE') AS hidden FROM masters m JOIN players p ON p.MasterAccount = m.id WHERE p.Online = 1 AND m.AdminLevel != 0")
+                rows = await cursor.execute("SELECT m.Username, p.Name, (SELECT ps.value FROM psettings ps WHERE entityid = p.id AND ps.key = 'CSET_AHIDE') FROM masters m JOIN players p ON p.MasterAccount = m.id WHERE p.Online = 1 AND m.AdminLevel != 0")
                 if rows == 0:
                     await interaction.response.send_message('There are currently no administrators in-game.', ephemeral=True)
                     return
 
                 data = await cursor.fetchall()
-
                 embed = discord.Embed(title='In-game Administrators', color=0xf21818, timestamp=interaction.created_at)
                 visible = 0
                 for admin in data:
@@ -109,13 +108,12 @@ class RCRPCommands(commands.Cog):
     async def helpers(self, interaction: discord.Interaction):
         async with aiomysql.connect(**self.mysqlinfo) as sql:
             async with sql.cursor() as cursor:
-                rows = await cursor.execute("SELECT m.Username AS mastername, p.Name AS charactername FROM masters m JOIN players p ON p.MasterAccount = m.id WHERE Helper != 0 AND Online = 1")
+                rows = await cursor.execute("SELECT m.Username, p.Name FROM masters m JOIN players p ON p.MasterAccount = m.id WHERE Helper != 0 AND Online = 1")
                 if rows == 0:
                     await interaction.response.send_message('There are currently no helpers in-game.', ephemeral=True)
                     return
 
                 data = await cursor.fetchall()
-
                 embed = discord.Embed(title='Ingame Helpers', color=0xe74c3c, timestamp=interaction.created_at)
                 for helper in data:
                     ma_name, char_name = helper
@@ -131,9 +129,9 @@ class RCRPCommands(commands.Cog):
         player = discord.utils.escape_mentions(player)
         async with aiomysql.connect(**self.mysqlinfo) as sql:
             async with sql.cursor() as cursor:
-                await cursor.execute("SELECT NULL FROM players WHERE Name = %s AND Online = 1", (player, ))
+                rows = await cursor.execute("SELECT NULL FROM players WHERE Name = %s AND Online = 1", (player, ))
 
-                if cursor.rowcount == 0:  # player is not in-game
+                if rows == 0:  # player is not in-game
                     await interaction.response.send_message(f'{player} is not currently in-game.', ephemeral=True)
                 else:
                     await interaction.response.send_message(f'{player} is currently in-game.', ephemeral=True)

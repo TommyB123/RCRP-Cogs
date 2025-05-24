@@ -108,9 +108,6 @@ class RCRPRoleSync(commands.Cog, name="RCRP Role Sync"):
                     await cursor.execute(f"SELECT discordid FROM masters WHERE {field} != 0 AND discordid != 0")
 
                 results = await cursor.fetchall()
-                await cursor.close()
-                sql.close()
-
                 rcrp_ids = []
                 for member_id in results:
                     rcrp_ids.append(member_id[0])

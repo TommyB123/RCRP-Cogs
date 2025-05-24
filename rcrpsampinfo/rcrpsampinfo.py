@@ -22,9 +22,7 @@ class RCRPSampInfo(commands.Cog, name="SA-MP Server Info"):
         async with aiomysql.connect(**self.mysqlinfo) as sql:
             async with sql.cursor() as cursor:
                 await cursor.execute("SELECT SUM(Online) AS playercount FROM players WHERE Online = 1")
-                data = await cursor.fetchone()
-
-                players = data[0]
+                players = await cursor.fetchone()[0]
                 if players is None:
                     players = 0
 

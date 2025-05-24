@@ -34,7 +34,7 @@ class RCRPApplications(commands.Cog, name='RCRP Applications'):
             rcrpguild = await self.bot.fetch_guild(rcrpguildid)
             appchannel: discord.TextChannel = self.bot.get_channel(appchannelid)
             async with aiomysql.connect(**self.mysqlinfo) as sql:
-                async with sql.cursor() as cursor:
+                async with sql.cursor(aiomysql.DictCursor) as cursor:
                     await cursor.execute("SELECT quizapps.id, maID, masters.Username, masters.EMail, characterName, quizapps.created_at, ipscore FROM quizapps JOIN masters ON quizapps.maID = masters.id WHERE quizapps.state = 0")
 
                     application_ids = []

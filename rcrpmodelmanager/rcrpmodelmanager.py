@@ -211,19 +211,16 @@ class RCRPModelManager(commands.Cog):
             return
 
         async with aiomysql.connect(**self.mysqlinfo) as sql:
-            async with sql.cursor() as cursor:
+            async with sql.cursor(aiomysql.DictCursor) as cursor:
                 if deletefiles:
-                    await cursor.execute("SELECT * FROM models WHERE modelid = %s", (modelid, ))
-                    data = await cursor.fetchone()
-                    modelfolder = data['folder']
-                    model_dff = data['dff_name']
-                    model_txd = data['txd_name']
-                    model_path = f'{self.rcrp_model_path}/{modelfolder}'
+                    await cursor.execute("SELECT folder, dff_name, txd_name FROM models WHERE modelid = %s", (modelid, ))
+                    folder, dff, txd = await cursor.fetchone()
+                    model_path = f'{self.rcrp_model_path}/{folder}'
 
-                    if os.path.isfile(f'{model_path}/{model_dff}'):
-                        os.remove(f'{model_path}/{model_dff}')
-                    if os.path.isfile(f'{model_path}/{model_txd}'):
-                        os.remove(f'{model_path}/{model_txd}')
+                    if os.path.isfile(f'{model_path}/{dff}'):
+                        os.remove(f'{model_path}/{dff}')
+                    if os.path.isfile(f'{model_path}/{txd}'):
+                        os.remove(f'{model_path}/{txd}')
 
                     remaining_files = os.listdir(model_path)
                     if len(remaining_files) == 0:  # folder is empty, delete it

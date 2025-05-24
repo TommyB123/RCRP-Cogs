@@ -115,8 +115,7 @@ class RCRPFactions(commands.Cog, name="Faction Commands"):
                     print(f"An invalid faction ID was passed to return_faction_name ({factionid})")
                     return "Unknown"
 
-                data = await cursor.fetchone()
-                return data[0]
+                return await cursor.fetchone()[0]
 
     async def return_character_id(self, character: str):
         character = character.replace(' ', '_')
@@ -126,8 +125,7 @@ class RCRPFactions(commands.Cog, name="Faction Commands"):
                 if rows == 0:
                     return
 
-                data = await cursor.fetchone()
-                return data[0]
+                return await cursor.fetchone()[0]
 
     async def return_master_id_from_discordid(self, id: int):
         async with aiomysql.connect(**self.mysqlinfo) as sql:
@@ -136,8 +134,7 @@ class RCRPFactions(commands.Cog, name="Faction Commands"):
                 if rows == 0:
                     return 0
 
-                data = await cursor.fetchone()
-                return data[0]
+                return await cursor.fetchone()[0]
 
     @commands.Cog.listener()
     async def on_guild_remove(self, guild: discord.Guild):
@@ -257,7 +254,7 @@ class RCRPFactions(commands.Cog, name="Faction Commands"):
         """Collects a list of factions and their online member counts"""
         async with aiomysql.connect(**self.mysqlinfo) as sql:
             async with sql.cursor() as cursor:
-                await cursor.execute("SELECT COUNT(players.id) AS members, COUNT(IF(Online = 1, 1, NULL)) AS onlinemembers, factions.FNameShort AS name FROM players JOIN factions ON players.Faction = factions.id WHERE Faction != 0 GROUP BY Faction ORDER BY Faction ASC")
+                await cursor.execute("SELECT COUNT(players.id), COUNT(IF(Online = 1, 1, NULL)), factions.FNameShort FROM players JOIN factions ON players.Faction = factions.id WHERE Faction != 0 GROUP BY Faction ORDER BY Faction ASC")
                 data = await cursor.fetchall()
 
                 embed = discord.Embed(title="Faction List", color=0xe74c3c, timestamp=ctx.message.created_at)

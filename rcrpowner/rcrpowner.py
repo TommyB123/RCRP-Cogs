@@ -117,18 +117,18 @@ class OwnerCog(commands.Cog):
         async with ctx.typing():
             async with aiomysql.connect(**self.mysqlinfo) as sql:
                 async with sql.cursor() as cursor:
-                    await cursor.execute("SELECT SUM(Bank) AS Bank, SUM(Check1) AS CheckSlot1, SUM(Check2) AS CheckSlot2, SUM(Check3) AS CheckSlot3 FROM players")
+                    await cursor.execute("SELECT SUM(Bank), SUM(Check1), SUM(Check2), SUM(Check3) FROM players")
                     banksum, check1sum, check2sum, check3sum = await cursor.fetchone()
-                    await cursor.execute("SELECT SUM(BankBalance) AS FBank FROM factions WHERE id != 3")
-                    factionbank = await cursor.fetchone()
-                    await cursor.execute("SELECT SUM(value) AS dollars FROM inventory_player WHERE `key` = 'INV_MONEY'")
-                    inhandcash = await cursor.fetchone()
-                    await cursor.execute("SELECT SUM(value) AS dollars FROM inventory_house WHERE `key` = 'INV_MONEY'")
-                    housecash = await cursor.fetchone()
-                    await cursor.execute("SELECT SUM(value) AS dollars FROM inventory_bizz WHERE `key` = 'INV_MONEY'")
-                    bizzcash = await cursor.fetchone()
-                    await cursor.execute("SELECT SUM(value) AS dollars FROM inventory_vehicle WHERE `key` = 'INV_MONEY'")
-                    vehiclecash = await cursor.fetchone()
+                    await cursor.execute("SELECT SUM(BankBalance) FROM factions WHERE id != 3")
+                    factionbank = await cursor.fetchone()[0]
+                    await cursor.execute("SELECT SUM(value) FROM inventory_player WHERE `key` = 'INV_MONEY'")
+                    inhandcash = await cursor.fetchone()[0]
+                    await cursor.execute("SELECT SUM(value) FROM inventory_house WHERE `key` = 'INV_MONEY'")
+                    housecash = await cursor.fetchone()[0]
+                    await cursor.execute("SELECT SUM(value) FROM inventory_bizz WHERE `key` = 'INV_MONEY'")
+                    bizzcash = await cursor.fetchone()[0]
+                    await cursor.execute("SELECT SUM(value) FROM inventory_vehicle WHERE `key` = 'INV_MONEY'")
+                    vehiclecash = await cursor.fetchone()[0]
                     cashsum = inhandcash + banksum + check1sum + check2sum + check3sum + factionbank + housecash + bizzcash + vehiclecash
 
                     embed = discord.Embed(title='RCRP Economy Statistics', color=0xe74c3c, timestamp=ctx.message.created_at)
@@ -152,9 +152,8 @@ class OwnerCog(commands.Cog):
         async with ctx.typing():
             async with aiomysql.connect(**self.mysqlinfo) as sql:
                 async with sql.cursor() as cursor:
-                    await cursor.execute("SELECT SUM(value) AS items, item FROM (SELECT * FROM inventory_player UNION SELECT * FROM inventory_house UNION SELECT * FROM inventory_bizz UNION SELECT * FROM inventory_vehicle) t WHERE `key` IN ('INV_COCAINE', 'INV_CRACK', 'INV_WEED', 'INV_HEROIN') GROUP BY `key`")
+                    await cursor.execute("SELECT SUM(value), item FROM (SELECT * FROM inventory_player UNION SELECT * FROM inventory_house UNION SELECT * FROM inventory_bizz UNION SELECT * FROM inventory_vehicle) t WHERE `key` IN ('INV_COCAINE', 'INV_CRACK', 'INV_WEED', 'INV_HEROIN') GROUP BY `key`")
                     data = await cursor.fetchall()
-
                     embed = discord.Embed(title='RCRP Drug Statistics', color=0xe74c3c, timestamp=ctx.message.created_at)
                     for drug in data:
                         quantity, drug = drug
@@ -168,7 +167,7 @@ class OwnerCog(commands.Cog):
         """Queries the database for weapon statistics depending on its origin"""
         async with aiomysql.connect(**self.mysqlinfo) as sql:
             async with sql.cursor() as cursor:
-                rows = await cursor.execute("SELECT COUNT(*) AS count, WeaponID FROM weapons WHERE WeaponOrigin = %s AND Deleted = 0 GROUP BY WeaponID ORDER BY WeaponID", (origin, ))
+                rows = await cursor.execute("SELECT COUNT(*), WeaponID FROM weapons WHERE WeaponOrigin = %s AND Deleted = 0 GROUP BY WeaponID ORDER BY WeaponID", (origin, ))
                 if rows == 0:
                     await ctx.send("Invalid origin type.")
                     return
