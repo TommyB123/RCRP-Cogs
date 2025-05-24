@@ -120,15 +120,20 @@ class OwnerCog(commands.Cog):
                     await cursor.execute("SELECT SUM(Bank), SUM(Check1), SUM(Check2), SUM(Check3) FROM players")
                     banksum, check1sum, check2sum, check3sum = await cursor.fetchone()
                     await cursor.execute("SELECT SUM(BankBalance) FROM factions WHERE id != 3")
-                    factionbank = await cursor.fetchone()[0]
+                    factionbank = await cursor.fetchone()
+                    factionbank = factionbank[0]
                     await cursor.execute("SELECT SUM(value) FROM inventory_player WHERE `key` = 'INV_MONEY'")
-                    inhandcash = await cursor.fetchone()[0]
+                    inhandcash = await cursor.fetchone()
+                    inhandcash = inhandcash[0]
                     await cursor.execute("SELECT SUM(value) FROM inventory_house WHERE `key` = 'INV_MONEY'")
-                    housecash = await cursor.fetchone()[0]
+                    housecash = await cursor.fetchone()
+                    housecash = housecash[0]
                     await cursor.execute("SELECT SUM(value) FROM inventory_bizz WHERE `key` = 'INV_MONEY'")
-                    bizzcash = await cursor.fetchone()[0]
+                    bizzcash = await cursor.fetchone()
+                    bizzcash = bizzcash[0]
                     await cursor.execute("SELECT SUM(value) FROM inventory_vehicle WHERE `key` = 'INV_MONEY'")
-                    vehiclecash = await cursor.fetchone()[0]
+                    vehiclecash = await cursor.fetchone()
+                    vehiclecash = vehiclecash[0]
                     cashsum = inhandcash + banksum + check1sum + check2sum + check3sum + factionbank + housecash + bizzcash + vehiclecash
 
                     embed = discord.Embed(title='RCRP Economy Statistics', color=0xe74c3c, timestamp=ctx.message.created_at)

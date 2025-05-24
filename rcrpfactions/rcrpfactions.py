@@ -115,7 +115,8 @@ class RCRPFactions(commands.Cog, name="Faction Commands"):
                     print(f"An invalid faction ID was passed to return_faction_name ({factionid})")
                     return "Unknown"
 
-                return await cursor.fetchone()[0]
+                data = await cursor.fetchone()
+                return data[0]
 
     async def return_character_id(self, character: str):
         character = character.replace(' ', '_')
@@ -125,7 +126,8 @@ class RCRPFactions(commands.Cog, name="Faction Commands"):
                 if rows == 0:
                     return
 
-                return await cursor.fetchone()[0]
+                data = await cursor.fetchone()
+                return data[0]
 
     async def return_master_id_from_discordid(self, id: int):
         async with aiomysql.connect(**self.mysqlinfo) as sql:
@@ -134,7 +136,8 @@ class RCRPFactions(commands.Cog, name="Faction Commands"):
                 if rows == 0:
                     return 0
 
-                return await cursor.fetchone()[0]
+                data = await cursor.fetchone()
+                return data[0]
 
     @commands.Cog.listener()
     async def on_guild_remove(self, guild: discord.Guild):

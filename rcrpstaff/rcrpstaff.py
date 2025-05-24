@@ -142,7 +142,8 @@ class RCRPStaffCommands(commands.Cog):
                 if rows == 0:
                     return 0
 
-                return await cursor.fetchone()[0]
+                data = await cursor.fetchone()
+                return data[0]
 
     async def fetch_account_id(self, mastername: str):
         async with aiomysql.connect(**self.mysqlinfo) as sql:
@@ -151,7 +152,8 @@ class RCRPStaffCommands(commands.Cog):
                 if rows == 0:
                     return 0
 
-                return await cursor.fetchone()[0]
+                data = await cursor.fetchone()
+                return data[0]
 
     @commands.group()
     @commands.guild_only()
@@ -443,7 +445,8 @@ class RCRPStaffCommands(commands.Cog):
         async with aiomysql.connect(**self.mysqlinfo) as sql:
             async with sql.cursor() as cursor:
                 await cursor.execute("SELECT Tester FROM masters WHERE discordid = %s", (member.id, ))
-                istester = await cursor.fetchone()[0]
+                istester = await cursor.fetchone()
+                istester = istester[0]
                 tester = ctx.guild.get_role(testerrole)
 
                 if istester == 0:  # they're not a tester, let's make them one
@@ -468,7 +471,8 @@ class RCRPStaffCommands(commands.Cog):
         async with aiomysql.connect(**self.mysqlinfo) as sql:
             async with sql.cursor() as cursor:
                 await cursor.execute("SELECT Helper FROM masters WHERE discordid = %s", (member.id, ))
-                ishelper = await cursor.fetchone()[0]
+                ishelper = await cursor.fetchone()
+                ishelper = ishelper[0]
                 helper = ctx.guild.get_role(helperrole)
 
                 if ishelper == 0:  # they're not a tester, let's make them one
