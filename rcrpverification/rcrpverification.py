@@ -31,13 +31,13 @@ class RcrpLogin(discord.ui.Modal, title='RCRP account login'):
 
         mysqlconfig = await bot.get_shared_api_tokens('mysql')
         async with aiomysql.connect(**mysqlconfig) as sql:
-            async with sql.cursor(aiomysql.DictCursor) as cursor:
+            async with sql.cursor() as cursor:
                 rows = await cursor.execute('SELECT id, Password, State, Helper, Tester, AdminLevel, discordid FROM masters WHERE Username = %s', (username, ))
                 if rows == 0:
                     await interaction.response.send_message("Invalid account name.", ephemeral=True)
                     return
 
-                id, password, state, helper, tester, adminlevel, discordid = await cursor.fetchone()
+                id, _password, state, helper, tester, adminlevel, discordid = await cursor.fetchone()
                 if state != 1:
                     await interaction.response.send_message("You cannot verify your Master Account if you have not passed the roleplay quiz and been whitelisted on the server.\nIf you're looking for help with the registration process, visit [our forums](https://forum.redcountyrp.com) for more info.", ephemeral=True)
                     return
@@ -52,7 +52,7 @@ class RcrpLogin(discord.ui.Modal, title='RCRP account login'):
                             return
                     await cursor.execute("UPDATE masters SET discordid = 0 WHERE id = %s", (id, ))
 
-                stored_password = password.encode()
+                stored_password = _password.encode()
                 password_match = bcrypt.checkpw(password, stored_password)
 
                 if password_match is False:
