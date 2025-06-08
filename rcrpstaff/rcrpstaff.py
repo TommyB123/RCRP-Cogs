@@ -498,6 +498,20 @@ class RCRPStaffCommands(commands.Cog):
             await member.add_roles(fcrole)
             await ctx.send(f'{member.mention} now has the faction consultant role.')
 
+    @assign.command()
+    @commands.guild_only()
+    @commands.check(rcrp_check)
+    @commands.check(admin_check)
+    async def content(self, ctx: commands.Context, member: discord.Member):
+        """Add or remove Content Team role from a member"""
+        contentrole = ctx.guild.get_role(550655802881343509)
+        if contentrole in [role for role in member.roles]:
+            await member.remove_roles(contentrole)
+            await ctx.send(f'{member.mention} no longer has the content developer role.')
+        else:
+            await member.add_roles(contentrole)
+            await ctx.send(f'{member.mention} now has the content developer role')
+
     @commands.command()
     @commands.guild_only()
     @commands.check(rcrp_check)
