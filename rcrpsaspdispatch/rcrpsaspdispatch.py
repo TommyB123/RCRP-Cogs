@@ -3,11 +3,11 @@ import inspect
 from redbot.core import commands
 from redbot.core.bot import Red
 
-sasp_guild_id = 381002103667294208
+sasp_guild_id = 1366843374228996187
 rcrp_guild_id = 93142223473905664
-sasp_unit_channel_category_id = 1186592362177253456
-sasp_tac_channel_category_id = 1190572456449155152
-logging_channel_id = 782976971134205966
+sasp_unit_channel_category_id = 1381876971449090078
+sasp_tac_channel_category_id = 1381877321375416381
+logging_channel_id = 1376455862662598746
 
 
 def voice_channel_sorter(channel: discord.VoiceChannel):
