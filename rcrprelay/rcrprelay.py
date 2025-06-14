@@ -30,7 +30,7 @@ class RCRP_Relay(commands.Cog, name="RCRP Relay"):
         if relay_channel is not None and relay_channel == message.channel.id:
             data = json.loads(message.content)
             if data and data.get('destination') == 'rudy':
-                self.bot.dispatch('on_rcrp_relay_message', message, data)
+                self.bot.dispatch('rcrp_relay_message', message, data)
 
     @commands.command()
     @commands.mod_or_permissions(manage_guild=True)
