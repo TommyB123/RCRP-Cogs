@@ -75,7 +75,7 @@ weaponnames = {
 }
 
 drug_names = {
-    'INV_COCAINER': 'High Grade Cocaine',
+    'INV_COCAINE': 'High Grade Cocaine',
     'INV_CRACK': 'High Grade Crack',
     'INV_WEED': 'Marijuana',
     'INV_HEROIN': 'Heroin'
