@@ -157,7 +157,7 @@ class OwnerCog(commands.Cog):
         async with ctx.typing():
             async with aiomysql.connect(**self.mysqlinfo) as sql:
                 async with sql.cursor() as cursor:
-                    await cursor.execute("SELECT SUM(value), item FROM (SELECT * FROM inventory_player UNION SELECT * FROM inventory_house UNION SELECT * FROM inventory_bizz UNION SELECT * FROM inventory_vehicle) t WHERE `key` IN ('INV_COCAINE', 'INV_CRACK', 'INV_WEED', 'INV_HEROIN') GROUP BY `key`")
+                    await cursor.execute("SELECT ROUND(SUM(JSON_EXTRACT(extra, '$.BASE_FLOAT'))), `key` FROM (SELECT * FROM inventory_player UNION SELECT * FROM inventory_house UNION SELECT * FROM inventory_bizz UNION SELECT * FROM inventory_vehicle) t WHERE `key` IN ('INV_COCAINE', 'INV_CRACK', 'INV_WEED', 'INV_HEROIN') GROUP BY `key`")
                     data = await cursor.fetchall()
                     embed = discord.Embed(title='RCRP Drug Statistics', color=0xe74c3c, timestamp=ctx.message.created_at)
                     for drug in data:
